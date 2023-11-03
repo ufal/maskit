@@ -155,7 +155,7 @@ while (<FAKES>) {
   my $line = $_;
   $line =~ s/#.*$//; # get rid of comments
   next if ($line =~ /^\s*$/); # empty line
-  if ($line =~ /^(\S+)\t(\S+)\t(\S+)$/) {
+  if ($line =~ /^([^\t]+)\t([^\t]+)\t([^\t]+)$/) {
     my $class = $1;
     my $constraint = $2;
     my $replacements = $3;
@@ -176,7 +176,6 @@ print STDERR "$fakes_count fake replacement rules have been read from file $fake
 
 close(FAKES);
 
-exit;
 
 ###################################################################################
 # Now let us read the text file that should be anonymized
@@ -349,6 +348,8 @@ if ($root) {
 # Now we have dependency trees of the sentences; let us search for phrases to be anonymized
 ###########################################################################################
 
+my %class_constraint2next_index = ();
+
 # print_log_header();
 
 foreach $root (@trees) {
@@ -358,79 +359,62 @@ foreach $root (@trees) {
   
   my @nodes = descendants($root);
   foreach my $node (@nodes) {
-    my $lemma = attr($node, 'lemma');
-    my $feats = attr($node, 'feats');
-    my $ne = get_misc_value($node, 'NE');
-    
-    
-    
-    
-    
-    
-    
-#´!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    
-    
-    
-    
-    
-    
-    
-    my $constraints = $phrase_lemma2constraints{$lemma};
-    if (!$constraints) {
-      print STDERR "No constraints for lemma '$lemma', skipping.\n";
-      next; # the lemma is not among citation phrases
-    }
-    foreach my $constraint (split(/_/, $constraints)) { # split the constraints by separator '_' and work with one constraint at a time
-      my $reliability = $phrase_lemma_constraint2reliability{$lemma . '_' . $constraint} // 0;
-      print STDERR "Testing phrase lemma (constraint) '$lemma ($constraint)' with reliability $reliability\n";
+    my $lemma = attr($node, 'lemma') // '';
+    my $form = attr($node, 'form') // '';
+    my $feats = attr($node, 'feats') // '';
+    my $ne = get_misc_value($node, 'NE') // '';
 
-      my ($claim_parent, @phrase_nodes) = check_constraint($node, $lemma, $constraint); # check if the constraint is met (e.g., se/si is present) and return the expected parent of the claim and all nodes belonging to the phrase; empty constraint is represented by 'NoConstraint'
-      if (!$claim_parent) {
-        print STDERR "- the constraint '$constraint' for lemma '$lemma' is not met.\n";
+    print STDERR "\nProcessing form '$form' with NameTag value '$ne' and feats '$feats'\n";
+    
+    next if !$ne; # no Named Entity found here
+    
+    if ($ne =~ /([a-z][a-z])_/) { # get the NE class, i.e. "ps"
+      my $class = $1;
+      my $constraints = $class2constraints{$class};
+      if (!$constraints) {
+        print STDERR "No constraints for NE class '$class', skipping.\n";
         next;
       }
-      if ($reliability >= $min_phrase_reliability) {
-        print STDERR " - reliability of lemma '$lemma' with constraint '$constraint' is greater than threshold $min_phrase_reliability\n";
-        # Checking if there is something like a claim, i.e. a finite-verb core object 
-        if (has_finite_verb_object($claim_parent)) {
-          evaluate_single_event('phrase', $lemma, $constraint, $root, @phrase_nodes);
-          if ($constraint eq 'PREP') { # special treatment of 'podle' and 'dle'
-            my $parent = $node->getParent;
-            my $source = attr($parent, 'form');
-            my @whole_source_nodes = get_whole_source_nodes($parent);
-            my $whole_source = get_text(@whole_source_nodes);
-            print STDERR " - SOURCE parent: $source\n - WHOLE SOURCE: $whole_source\n";
-            my $source_type = guess_source_type($root, $node, @whole_source_nodes);
-            print STDERR "   - SOURCE TYPE: $source_type\n";
-            evaluate_single_event($source_type, $lemma, 'N/A', $root, @whole_source_nodes);
-          }
-          else {
-            my @nsubj = grep {attr($_, 'deprel') eq 'nsubj'} $node->getAllChildren; # looking for a subject (i.e, the source)
-            if (@nsubj) {
-              my $subject = attr($nsubj[0], 'form');
-              my @whole_source_nodes = get_whole_source_nodes($nsubj[0]);
-              my $whole_source = get_text(@whole_source_nodes);
-              print STDERR " - SOURCE nsubj: $subject\n - WHOLE SOURCE: $whole_source\n";
-              my $source_type = guess_source_type($root, $node, @whole_source_nodes);
-              print STDERR "   - SOURCE TYPE: $source_type\n";
-              evaluate_single_event($source_type, $lemma, 'N/A', $root, @whole_source_nodes);
-            }
-          }
+      print STDERR "Found constraints '$constraints' for NE class '$class'\n";
+
+      foreach my $constraint (split(/_/, $constraints)) { # split the constraints by separator '_' and work with one constraint at a time
+
+        my $matches = check_constraint($node, $form, $constraint); # check if the constraint is met (e.g., Gender=Fem); empty constraint is represented by 'NoConstraint'
+        if (!$matches) {
+          print STDERR " - the constraint '$constraint' for form '$form' is not met.\n";
+          next;
+        }
+        print STDERR " - the constraint '$constraint' for form '$form' matches.\n";
+        my $class_constraint = $class . '_' . $constraint;
+        my $replacements = $class_constraint2replacements{$class_constraint};
+        if (!$replacements) {
+          print STDERR "No replacements for NE class '$class' and constraint '$constraint', skipping.\n";
+          next;
+        }
+        print STDERR "  - found replacements '$replacements' for class '$class' and constraint '$constraint'\n";
+        my @a_replacements = split('\|', $replacements);
+        my $replacement_index = $class_constraint2next_index{$class_constraint} // 0;
+        $class_constraint2next_index{$class_constraint}++;
+        my $replacement;
+        my $number_of_replacements = scalar(@a_replacements);
+        if ($replacement_index >= $number_of_replacements) { # maximum index exceeded
+          $replacement = '[' . $class . '_#' . $replacement_index . ']';
+          print STDERR "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n";
         }
         else {
-          print STDERR "   - no finite-verb core object found!\n";
+          $replacement = $a_replacements[$replacement_index];
         }
+        print STDERR "    - replacement in class $class: '$form' -> '$replacement'\n";
+        set_attr($node, 'replacement', $replacement);
+        last;
       }
     }
-  }
-  
-  
+  }  
 }
 
 # print_log_tail();
 
-# print the input text with marked sources in the selected output format to STDOUT
+# print the input text with replacements in the selected output format to STDOUT
 my $output = get_output($output_format); 
 print $output;
 
@@ -445,6 +429,43 @@ if ($store_conllu) { # log the anonymized text in the conllu format in a file
 ########################## FINISHED ############################
 ################################################################
 
+
+=item check_constraint
+
+Check if the constraint is met at the node.
+
+The constraint is a sequence of morphological properties from UD attribute feats, e.g.:
+Gender=Masc|Number=Sing
+
+Returns 0 if the constraint (all parts) is not met.
+Otherwise returns 1.
+
+=cut
+
+
+sub check_constraint {
+  my ($node, $form, $constraint) = @_;
+
+  if ($constraint eq 'NoConstraint') { # no constraint, i.e. trivially matched
+    print STDERR " - no constraint, i.e. trivially matched\n";
+    return 1;
+  }
+
+  my $feats = attr($node, 'feats') // '';
+  print STDERR "check_constraint: checking constraint '$constraint' against feats '$feats'\n";
+
+  my @a_constraints = split('\|', $constraint); # get the individul features
+  foreach my $feature (@a_constraints) {
+    print STDERR " - checking if '$feature' matches\n";
+    if ($feats !~ /\b$feature\b/) { # $feature not in $feats
+      print STDERR "   - constraint $feature not matching; returning 0\n";
+      return 0;
+    }
+    print STDERR "   - constraint $feature not matches\n";
+  }
+  print STDERR " - OK, all features matched, the constraint matches.\n";
+  return 1;
+}
 
 
 
@@ -647,6 +668,8 @@ sub get_output {
 
   my $first_sent = 1; # for sentence separation in txt and html formats (first sentence in the file should not be separated)
 
+=item
+
   # for conllu:
   my $SD_phrase_count = 0; # counting citation phrases
   my $SD_source_count = 0; # counting citation sources
@@ -655,7 +678,9 @@ sub get_output {
   my $end_of_SD = 0; # dtto
   my $SD_type = ''; # type of the event - P for phrases, S for sources
   my $SD_subtype = ''; # source type
-  
+
+=cut
+
   foreach $root (@trees) {
   
     # PARAGRAPH SEPARATION (txt, html)
@@ -708,62 +733,15 @@ sub get_output {
     foreach my $node (@nodes) {
     
       # COLLECT INFO ABOUT THE TOKEN
-      my $form = attr($node, 'form');
-      my $start = attr($node, 'start');
-      my $end = attr($node, 'end');
-      
+      my $form = attr($node, 'replacement') // attr($node, 'form');
+      if ($diff and attr($node, 'replacement')) { # should the original form be displayed as well?
+        $form .= '_[' . attr($node, 'form') . ']';
+      }
+
       my $span_start = '';
       my $span_end = '';
       my $type_span = '';
 
-      my $source_range = partial_match("$start:$end", \%h_source_range2text) // ''; # is this token a part of a source?
-      if ($source_range) {
-        if ($source_range =~ /^$start:/) { # first token in this source
-          $SD_source_count++;
-          $SD_count = $SD_source_count;
-        }
-        if ($source_range =~ /\b$start:/) { # first token in one of contiguous parts of the source
-          $span_start = $format eq 'html' ? '<span style="font-weight: bold; text-decoration: underline; color: darkgreen">' : '>>';
-          $inside_SD = 1;
-          $SD_type = 'S';        
-          my $source_type = $h_source_range2type{$source_range};
-          if ($source_type) {
-            $SD_subtype = 'a' if $source_type =~ /anonymous/;
-            $SD_subtype = 'ap' if $source_type =~ /anonymous-partial/;
-            $SD_subtype = 'u' if $source_type =~ /unofficial/;
-            $SD_subtype = 'op' if $source_type =~ /official-political/;
-            $SD_subtype = 'onp' if $source_type =~ /official-non-political/;
-          }
-        }
-        if ($source_range =~ /:$end\b/) { # last token in one of contiguous parts of the source
-          $span_end = $format eq 'html' ? '</span>' : '<<';
-          $end_of_SD = 1;
-        }
-        if ($source_range =~ /:$end$/) { # last token of the source
-          my $source_type = $h_source_range2type{$source_range};
-          if ($source_type) {
-            $type_span = $format eq 'html' ? "<span style=\"vertical-align: sub; color: darkblue\">[$source_type]</span>" : "[$source_type]";
-          }
-        }
-      }
-      
-      else { # it is not a part of a source, maybe it is a part of a phrase?
-        my $phrase_range = partial_match("$start:$end", \%h_phrase_range2text) // ''; # is this token a part of a citation phrase?
-        if ($phrase_range =~ /^$start:/) { # first token in this phrase
-          $SD_phrase_count++;
-          $SD_count = $SD_phrase_count;
-        }
-        if ($phrase_range =~ /\b$start:/) { # first token in one of contiguous parts of the phrase
-          $span_start = $format eq 'html' ? '<span style="font-weight: bold; color: darkred">' : '@';
-          $inside_SD = 1;
-          $SD_type = 'P';        
-        }
-        if ($phrase_range =~ /:$end\b/) { # last token in one of contiguous parts of the phrase
-          $span_end = $format eq 'html' ? '</span>' : '@';
-          $end_of_SD = 1;
-        }
-      }
-      
       # PRINT THE TOKEN
       if ($format =~ /^(txt|html)$/) {
         my $SpaceAfter = get_misc_value($node, 'SpaceAfter') // '';
@@ -779,29 +757,7 @@ sub get_output {
         my $feats = attr($node, 'feats') // '_';
         my $deps = attr($node, 'deps') // '_';
         my $misc = attr($node, 'misc') // '_';
-        
-        if ($inside_SD) { # add info to $misc about detected events
-          my $event = 'SD=' . $SD_type . '_' . $SD_count;
-          $event .= '_' . $SD_subtype if ($SD_subtype);
-          
-          if ($misc eq '_') {
-            $misc = $event;
-          }
-          else {
-            my @miscs = split('\|', $misc);
-            push(@miscs, $event);
-            my @miscs_sorted = sort {$a cmp $b} @miscs;
-            $misc = join('|', @miscs_sorted);
-          }
-          
-          if ($end_of_SD) {
-            $inside_SD = 0;
-            $end_of_SD = 0;
-            $SD_type = '';
-            $SD_subtype = '';
-          }
-        }
-        
+
         my $head = attr($node, 'head') // '_';
         
         my $multiword = attr($node, 'multiword') // '';
@@ -811,6 +767,7 @@ sub get_output {
         
         $output .= "$ord\t$form\t$lemma\t$upostag\t$xpostag\t$feats\t$head\t$deprel\t$deps\t$misc\n";
       }
+
     }
 
     # sentence separation in the conllu format needs to be here (also the last sentence should be ended with \n)
@@ -1084,6 +1041,10 @@ Returns the parsed output in UD CONLL format
 sub call_udpipe {
     my $text = shift;
 
+=item
+
+    # Původní volání metodou GET - neprošly delší texty
+
     # Nastavení URL pro volání REST::API s parametry
     my $tokenizer = 'tokenizer=ranges';
     if ($input_format eq 'presegmented') {
@@ -1098,6 +1059,57 @@ sub call_udpipe {
     # Vytvoření požadavku
     my $req = HTTP::Request->new('GET', $url);
     $req->header('Content-Type' => 'application/json');
+
+=cut
+
+=item
+
+    # Nefunkční pokus o volání metodou POST
+
+    # Nastavení URL pro volání REST::API
+    my $url = 'http://lindat.mff.cuni.cz/services/udpipe/api/process';
+
+    # Připravení dat pro POST požadavek
+    my %post_data = (
+        tokenizer => 'ranges',
+        tagger => 1,
+        parser => 1,
+        data => uri_escape_utf8($text)
+    );
+
+    if ($input_format eq 'presegmented') {
+        $post_data{tokenizer} .= ';presegmented';
+    }
+
+    # Vytvoření instance LWP::UserAgent
+    my $ua = LWP::UserAgent->new;
+
+    # Vytvoření POST požadavku s daty jako JSON
+    my $req = HTTP::Request->new('POST', $url);
+    $req->header('Content-Type' => 'application/json');
+    $req->content(encode_json(\%post_data));
+
+=cut
+
+
+    # Funkční volání metodou POST, i když podivně kombinuje URL-encoded s POST
+
+    # Nastavení URL pro volání REST::API s parametry
+    my $tokenizer = 'tokenizer=ranges';
+    if ($input_format eq 'presegmented') {
+      $tokenizer .= ';presegmented';
+    }
+    my $url = 'http://lindat.mff.cuni.cz/services/udpipe/api/process?' . $tokenizer . '&tagger&parser';
+
+    my $ua = LWP::UserAgent->new;
+
+    # Define the data to be sent in the POST request
+    my $data = "data=" . uri_escape_utf8($text);
+
+    my $req = HTTP::Request->new('POST', $url);
+    $req->header('Content-Type' => 'application/x-www-form-urlencoded');
+    $req->content($data);
+
 
     # Odeslání požadavku a získání odpovědi
     my $res = $ua->request($req);
@@ -1132,7 +1144,7 @@ sub call_nametag {
     my $result = '';
     
     # Let us call NameTag api for each X sentences separately, as too large input produces an error.
-    my $max_sentences = 1; # 5 was too large at first attempt, so let us hope 1 is safe enough.
+    my $max_sentences = 100; # 5 was too large at first attempt, so let us hope 1 is safe enough.
     
     my $conll_part = '';
     my $sent_count = 0;
@@ -1166,6 +1178,10 @@ If an error occurs, the function just returns the input conll text unchanged.
 sub call_nametag_part {
     my $conll = shift;
 
+=item
+    
+    # Stará verze metodou GET
+    
     # Nastavení URL pro volání REST::API s parametry
     my $url = 'http://lindat.mff.cuni.cz/services/nametag/api/recognize?input=conllu&output=conllu-ne&data=' . uri_escape_utf8($conll);
 
@@ -1175,6 +1191,23 @@ sub call_nametag_part {
     # Vytvoření požadavku
     my $req = HTTP::Request->new('GET', $url);
     $req->header('Content-Type' => 'application/json');
+
+=cut
+
+    # Funkční volání metodou POST, i když podivně kombinuje URL-encoded s POST
+
+    # Nastavení URL pro volání REST::API s parametry
+    my $url = 'http://lindat.mff.cuni.cz/services/nametag/api/recognize?input=conllu&output=conllu-ne';
+
+    my $ua = LWP::UserAgent->new;
+
+    # Define the data to be sent in the POST request
+    my $data = "data=" . uri_escape_utf8($conll);
+
+    my $req = HTTP::Request->new('POST', $url);
+    $req->header('Content-Type' => 'application/x-www-form-urlencoded');
+    $req->content($data);
+
 
     # Odeslání požadavku a získání odpovědi
     my $res = $ua->request($req);
