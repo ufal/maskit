@@ -33,6 +33,7 @@ my $input_format;
 my $fake_data_file;
 my $output_format;
 my $diff;
+my $add_NE;
 my $store_conllu;
 my $version;
 my $help;
@@ -44,7 +45,8 @@ GetOptions(
     'if|input-format=s'  => \$input_format, # input format, possible values: txt, presegmented
     'f|fake-data-file=s' => \$fake_data_file, # the name of the file with a list of fake data
     'of|output-format=s' => \$output_format, # output format, possible values: txt, html, conllu
-    'd|diff'             => \$diff, # should the original expressions be displayed next to the anonymized versions?
+    'd|diff'             => \$diff, # display the original expressions next to the anonymized versions
+    'ne|named-entities'  => \$add_NE, # add named entities as marked by NameTag to the anonymized versions
     'sc|store-conllu'    => \$store_conllu, # should the result be logged as a conllu file?
     'v|version'          => \$version, # print the version of the program and exit
     'h|help'             => \$help, # print a short help and exit
@@ -70,6 +72,7 @@ options:  -i|--input-file [input text file name]
           -f|--fake-data-file [fake data file name]
          -of|--output-format [output format: txt (default), html, conllu]
           -d|--diff (display the original expressions next to the anonymized versions)
+         -ne|--named-entities (add NameTag marks to the anonymized versions)
          -sc|--store-conllu (log the output of UDPipe parser, NameTag and Anonymizer to a CONLL-U file)
           -v|--version (prints the version of the program and ends)
           -h|--help (prints a short help and ends)
@@ -127,11 +130,15 @@ else {
 }
 
 if ($diff) {
-  print STDERR " - display the original expressions next to the anonymized versions)\n";
+  print STDERR " - display the original expressions next to the anonymized versions\n";
+}
+
+if ($add_NE) {
+  print STDERR " - add named entities as marked by NameTag to the anonymized versions\n";
 }
 
 if ($store_conllu) {
-  print STDERR " - log output in a conllu file; includes output of udpipe and nametag)\n";
+  print STDERR " - log output in a conllu file; includes output of udpipe and nametag\n";
 }
 
 
@@ -350,6 +357,8 @@ if ($root) {
 
 my %class_constraint2next_index = ();
 
+my %replaced = (); # a hash keeping info about lemmas and their replacements (class . '_' . lemma -> replacement lemma)
+
 # print_log_header();
 
 foreach $root (@trees) {
@@ -360,54 +369,35 @@ foreach $root (@trees) {
   my @nodes = descendants($root);
   foreach my $node (@nodes) {
     my $lemma = attr($node, 'lemma') // '';
+    my $tag = attr($node, 'xpostag') // '';
     my $form = attr($node, 'form') // '';
     my $feats = attr($node, 'feats') // '';
-    my $ne = get_misc_value($node, 'NE') // '';
+    my $class = get_NameTag_class($node) // '';
 
-    print STDERR "\nProcessing form '$form' with NameTag value '$ne' and feats '$feats'\n";
+    print STDERR "\nProcessing form '$form' with NameTag class '$class' and feats '$feats'\n";
     
-    next if !$ne; # no Named Entity found here
+    next if !$class; # no NameTag class found here
     
-    if ($ne =~ /([a-z][a-z])_/) { # get the NE class, i.e. "ps"
-      my $class = $1;
-      my $constraints = $class2constraints{$class};
-      if (!$constraints) {
-        print STDERR "No constraints for NE class '$class', skipping.\n";
+    my $constraints = $class2constraints{$class};
+    if (!$constraints) {
+      print STDERR "No constraints for NE class '$class', skipping.\n";
+      next;
+    }
+    print STDERR "Found constraints '$constraints' for NE class '$class'\n";
+
+    foreach my $constraint (split(/_/, $constraints)) { # split the constraints by separator '_' and work with one constraint at a time
+
+      my $matches = check_constraint($node, $form, $constraint); # check if the constraint is met (e.g., Gender=Fem); empty constraint is represented by 'NoConstraint'
+      if (!$matches) {
+        print STDERR " - the constraint '$constraint' for form '$form' is not met.\n";
         next;
       }
-      print STDERR "Found constraints '$constraints' for NE class '$class'\n";
-
-      foreach my $constraint (split(/_/, $constraints)) { # split the constraints by separator '_' and work with one constraint at a time
-
-        my $matches = check_constraint($node, $form, $constraint); # check if the constraint is met (e.g., Gender=Fem); empty constraint is represented by 'NoConstraint'
-        if (!$matches) {
-          print STDERR " - the constraint '$constraint' for form '$form' is not met.\n";
-          next;
-        }
-        print STDERR " - the constraint '$constraint' for form '$form' matches.\n";
-        my $class_constraint = $class . '_' . $constraint;
-        my $replacements = $class_constraint2replacements{$class_constraint};
-        if (!$replacements) {
-          print STDERR "No replacements for NE class '$class' and constraint '$constraint', skipping.\n";
-          next;
-        }
-        print STDERR "  - found replacements '$replacements' for class '$class' and constraint '$constraint'\n";
-        my @a_replacements = split('\|', $replacements);
-        my $replacement_index = $class_constraint2next_index{$class_constraint} // 0;
-        $class_constraint2next_index{$class_constraint}++;
-        my $replacement;
-        my $number_of_replacements = scalar(@a_replacements);
-        if ($replacement_index >= $number_of_replacements) { # maximum index exceeded
-          $replacement = '[' . $class . '_#' . $replacement_index . ']';
-          print STDERR "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n";
-        }
-        else {
-          $replacement = $a_replacements[$replacement_index];
-        }
-        print STDERR "    - replacement in class $class: '$form' -> '$replacement'\n";
-        set_attr($node, 'replacement', $replacement);
-        last;
-      }
+      print STDERR " - the constraint '$constraint' for form '$form' matches.\n";
+      my $replacement_lemma = get_replacement($node, $class, $constraint);
+      my $replacement_form = get_form($replacement_lemma, $tag);
+      print STDERR "    - replacement in class $class: '$form' -> '$replacement_form'\n";
+      set_attr($node, 'replacement', $replacement_form);
+      last;
     }
   }  
 }
@@ -468,42 +458,59 @@ sub check_constraint {
 }
 
 
-
-=item is_finite
-
-Checks if the given node represents a finite verb
-
-=cut
-
-sub is_finite {
+sub get_NameTag_class {
   my $node = shift;
-  my $VerbForm = get_feat_value($node, 'VerbForm') // '';
-  # print STDERR "is_finite: VerbForm = '$VerbForm'\n";
-  if ($VerbForm and $VerbForm ne 'Inf') {
-    return 1;
-  }
-  # It may also be a copula ("je konzervativní")
-  my @cop_children = grep {attr($_, 'deprel') eq 'cop'} $node->getAllChildren;
-  if (@cop_children) {
-    if (is_finite($cop_children[0])) {
-      return 1;
+  my $ne = get_misc_value($node, 'NE') // '';
+  if ($ne =~ /([a-z][a-z])_/) { # get the NE class, i.e. "ps"
+    my $class = $1;
+    my $lemma = attr($node, 'lemma') // '';
+    if ($lemma eq '.') { # '.' in e.g. 'ul.' or 'nám.'
+      return undef;
     }
-  }
-  # It may be a complex verb ("bude potřebovat")
-  my @finverb_children = grep {get_feat_value($_, 'VerbForm') and get_feat_value($_, 'VerbForm') ne 'Inf'} $node->getAllChildren;
-  if ($VerbForm and @finverb_children) {
-    if (is_finite($finverb_children[0])) {
-      return 1;
+    if ($class eq 'gs' and ($lemma eq 'ulice')) {
+      return undef;
     }
-  }  
-  # It may be a reference to a verbal phrase, such as "potvrzuje to i ..." or "jeho slova potvrzuje i ..."
-  my $form = attr($node, 'form');
-  if ($form =~ /^(slova|to|tom)$/) {
-    return 1;
+    if ($class eq 'ah' and ($lemma eq 'číslo' or $lemma eq 'č')) {
+      return undef;
+    }
+    return $class;
   }
-  return 0;
+  return undef;
 }
 
+
+sub get_replacement {
+  my ($node, $class, $constraint) = @_;
+
+  # check if this lemma with this NameTag class has already been replaced
+  my $lemma = attr($node, 'lemma') // '';
+  my $replacement = $replaced{$class . '_' . $lemma};
+  if ($replacement) {
+    return $replacement;
+  }
+  
+  my $class_constraint = $class . '_' . $constraint;
+  my $replacements = $class_constraint2replacements{$class_constraint};
+  if (!$replacements) {
+    print STDERR "No replacements for NE class '$class' and constraint '$constraint', skipping.\n";
+    next;
+  }
+  print STDERR "  - found replacements '$replacements' for class '$class' and constraint '$constraint'\n";
+  my @a_replacements = split('\|', $replacements);
+  my $replacement_index = $class_constraint2next_index{$class_constraint} // 0;
+  $class_constraint2next_index{$class_constraint}++;
+  my $number_of_replacements = scalar(@a_replacements);
+  if ($replacement_index >= $number_of_replacements) { # maximum index exceeded
+    $replacement = '[' . $class . '_#' . $replacement_index . ']';
+    print STDERR "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n";
+  }
+  else {
+    $replacement = $a_replacements[$replacement_index];
+  }
+  
+  $replaced{$class . '_' . $lemma} = $replacement;
+  return $replacement;
+}
 
 
 =item has_child_with_lemma
@@ -734,8 +741,18 @@ sub get_output {
     
       # COLLECT INFO ABOUT THE TOKEN
       my $form = attr($node, 'replacement') // attr($node, 'form');
-      if ($diff and attr($node, 'replacement')) { # should the original form be displayed as well?
-        $form .= '_[' . attr($node, 'form') . ']';
+      my $class = get_NameTag_class($node);
+      my $replacement = attr($node, 'replacement');
+      if (($diff and $replacement) or ($add_NE and $class)) { # should the original form and/or NE class be displayed as well?
+        $form .= '_[';
+        if ($add_NE and $class) {
+          $form .= $class;
+          $form .= '_' if ($diff and $replacement);
+        }
+        if ($diff and $replacement) {
+          $form .= attr($node, 'form');
+        }
+        $form .= ']';
       }
 
       my $span_start = '';
@@ -1027,6 +1044,42 @@ sub root {
   }
   return $node;
 }
+
+
+
+sub get_form {
+  my ($lemma, $tag) = @_;
+
+  # Nastavení URL pro volání REST::API s parametry
+  my $url = 'http://lindat.mff.cuni.cz/services/morphodita/api/generate?data=' . uri_escape_utf8("$lemma\t$tag");
+  print STDERR "get_form: url = $url\n";
+  # Vytvoření instance LWP::UserAgent
+  my $ua = LWP::UserAgent->new;
+
+  # Vytvoření požadavku
+  my $req = HTTP::Request->new('GET', $url);
+  $req->header('Content-Type' => 'application/json');
+
+  # Odeslání požadavku a získání odpovědi
+  my $res = $ua->request($req);
+
+  # Zkontrolování, zda byla odpověď úspěšná
+  if ($res->is_success) {
+      # Získání odpovědi v JSON formátu
+      my $json_response = decode_json($res->content);
+      # Zpracování odpovědi
+      my $result = $json_response->{result};
+      chomp($result);
+      # print STDERR "UDPipe result:\n$result\n";
+      $result =~ s/\t.*$//; # get rid of everything but the form
+      return $result;
+  } else {
+      print STDERR "Chyba: " . $res->status_line . "\n";
+      return '';
+  }
+
+}
+
 
 
 ######### PARSING THE TEXT WITH UDPIPE #########
