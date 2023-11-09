@@ -1,0 +1,116 @@
+#########################################################################################################
+# Fake data file
+#
+# structure:
+# NameTag class \t morphology constraints separated by | (or NoConstraint) \t replacements separated by |
+#
+# The original idea is to have 10 items for each NameTag class
+#########################################################################################################
+
+
+# street number
+ah	NoConstraint	3|5|7|11|13|17|19|23|29|31
+
+# phone/fax number
+at	NoConstraint	123 456 789|234 567 891|345 678 912|456 789 123|567 891 234|678 912 345|789 123 456|891 234 567|912 345 678|132 465 798
+
+# zip codes
+az	NoConstraint	123 45|234 56|345 67|456 78|567 89|678 91|789 12|891 23|912 34|132 54
+
+# first names (male)
+pf	Gender=Masc	Jiří|Jan|Petr|Josef|Pavel|Martin|Tomáš|Jaroslav|Miroslav|Zdeněk
+
+# first names (female)
+pf	Gender=Fem	Jana|Marie|Eva|Hana|Anna|Lenka|Kateřina|Lucie|Věra|Alena
+
+# surnames (male)
+ps	Gender=Masc	Novák|Svoboda|Novotný|Dvořák|Černý|Procházka|Kučera|Veselý|Horák|Němec
+
+# surnames (female)
+ps	Gender=Fem	Nováková|Svobodová|Novotná|Dvořáková|Černá|Procházková|Kučerová|Veselá|Horáková|Němcová
+
+# streets, squares
+gs	NoConstraint	Krátká|Nádražní|Polní|Klášterní|Dlouhá|Kostelní|Pražská|Americká|Růžová|Květinová
+
+# cities/towns
+gu	NoConstraint	Praha|Brno|Ostrava|Plzeň|Liberec|Olomouc|Pardubice|Zlín|Havířov|Kladno
+
+# companies, concerns...
+if	NoConstraint	ŠKODA|ČEZ|AGROFERT|Hyundai|Unipetrol|Lidl|RWE|Kaufland|Albert|FORTUNA
+
+# email address
+me	NoConstraint	abc@gmail.com|def@gmail.com|ghi@gmail.com|jkl@gmail.com|mno@gmail.com|pqr@gmail.com|stu@gmail.com|vwx@gmail.com|yza@gmail.com|bcd@gmail.com
+
+#NameTag offers these values:
+
+#NE containers
+
+#P - complex person names
+#T - complex time expressions
+#A - complex address expressions
+#C - complex bibliographic expressions
+
+#Types of NE
+
+#a - Numbers in addresses
+#ah - street numbers
+#at - phone/fax numbers
+#az - zip codes
+
+#g - Geographical names
+#gc - states
+#gh - hydronyms
+#gl - nature areas / objects
+#gq - urban parts
+#gr - territorial names
+#gs - streets, squares
+#gt - continents
+#gu - cities/towns
+#g_ - underspecified
+
+#i - Institutions
+#ia - conferences/contests
+#ic - cult./educ./scient. inst.
+#if - companies, concerns...
+#io - government/political inst.
+#i_ - underspecified
+
+#m - Media names
+#me - email address
+#mi - internet links
+#mn - periodical
+#ms - radio and TV stations
+
+#n - Number expressions
+#na - age
+#nb - vol./page/chap./sec./fig. numbers
+#nc - cardinal numbers
+#ni - itemizer
+#no - ordinal numbers
+#ns - sport score
+#n_ - underspecified
+
+#o - Artifact names
+#oa - cultural artifacts (books, movies)
+#oe - measure units
+#om - currency units
+#op - products
+#or - directives, norms
+#o_ - underspecified
+
+#p - Personal names
+#pc - inhabitant names
+#pd - (academic) titles
+#pf - first names
+#pm - second names
+#pp - relig./myth persons
+#ps - surnames
+#p_ - underspecified
+
+#t - Time expressions
+#td - days
+#tf - feasts
+#th - hours
+#tm - months
+#ty - years
+

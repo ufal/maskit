@@ -22,15 +22,15 @@ my $VER = '0.1'; # version of the program
 my $OUTPUT_FORMAT_DEFAULT = 'txt';
 # default input format
 my $INPUT_FORMAT_DEFAULT = 'txt';
-# default fake data file name
-my $FAKE_DATA_FILE_DEFAULT = 'resources/fake_data.csv';
+# default replacements file name
+my $REPLACEMENTS_FILE_DEFAULT = 'resources/replacements.csv';
 
 
 # variables for arguments
 my $input_file;
 my $stdin;
 my $input_format;
-my $fake_data_file;
+my $replacements_file;
 my $output_format;
 my $diff;
 my $add_NE;
@@ -40,16 +40,16 @@ my $help;
 
 # getting the arguements
 GetOptions(
-    'i|input-file=s'     => \$input_file, # the name of the input file
-    'si|stdin'           => \$stdin, # should the input be read from STDIN?
-    'if|input-format=s'  => \$input_format, # input format, possible values: txt, presegmented
-    'f|fake-data-file=s' => \$fake_data_file, # the name of the file with a list of fake data
-    'of|output-format=s' => \$output_format, # output format, possible values: txt, html, conllu
-    'd|diff'             => \$diff, # display the original expressions next to the anonymized versions
-    'ne|named-entities'  => \$add_NE, # add named entities as marked by NameTag to the anonymized versions
-    'sc|store-conllu'    => \$store_conllu, # should the result be logged as a conllu file?
-    'v|version'          => \$version, # print the version of the program and exit
-    'h|help'             => \$help, # print a short help and exit
+    'i|input-file=s'         => \$input_file, # the name of the input file
+    'si|stdin'               => \$stdin, # should the input be read from STDIN?
+    'if|input-format=s'      => \$input_format, # input format, possible values: txt, presegmented
+    'rf|replacements-file=s' => \$replacements_file, # the name of the file with replacements
+    'of|output-format=s'     => \$output_format, # output format, possible values: txt, html, conllu
+    'd|diff'                 => \$diff, # display the original expressions next to the anonymized versions
+    'ne|named-entities'      => \$add_NE, # add named entities as marked by NameTag to the anonymized versions
+    'sc|store-conllu'        => \$store_conllu, # should the result be logged as a conllu file?
+    'v|version'              => \$version, # print the version of the program and exit
+    'h|help'                 => \$help, # print a short help and exit
 );
 
 
@@ -69,7 +69,7 @@ Usage: anonymize.pl [options]
 options:  -i|--input-file [input text file name]
          -si|--stdin (input text provided via stdin)
          -if|--input-format [input format: txt (default) or presegmented]
-          -f|--fake-data-file [fake data file name]
+         -rf|--replacements-file [replacements file name]
          -of|--output-format [output format: txt (default), html, conllu]
           -d|--diff (display the original expressions next to the anonymized versions)
          -ne|--named-entities (add NameTag marks to the anonymized versions)
@@ -108,12 +108,12 @@ else {
   print STDERR " - input format: $input_format\n";
 }
 
-if (!defined $fake_data_file) {
-  print STDERR " - fake data file: not specified, set to default $FAKE_DATA_FILE_DEFAULT\n";
-  $fake_data_file = "$script_dir/$FAKE_DATA_FILE_DEFAULT";
+if (!defined $replacements_file) {
+  print STDERR " - replacements file: not specified, set to default $REPLACEMENTS_FILE_DEFAULT\n";
+  $replacements_file = "$script_dir/$REPLACEMENTS_FILE_DEFAULT";
 }
 else {
-  print STDERR " - fake data file: $fake_data_file\n";
+  print STDERR " - replacements file: $replacements_file\n";
 }
 
 $output_format = lc($output_format) if $output_format;
@@ -145,18 +145,18 @@ if ($store_conllu) {
 print STDERR "\n";
 
 ###################################################################################
-# Let us first read the file with fake data
+# Let us first read the file with replacements
 ###################################################################################
 
 my %class_constraint2replacements; # NameTag class + constraint => replacements separated by |; the class is separated by '_' from the constraint
 my %class2constraints; # which constraints does the class require (if any); the individual constraints are separated by '_'; an empty constraint is represented by 'NoConstraint'
 
-print STDERR "Reading fake data from $fake_data_file\n";
+print STDERR "Reading replacements from $replacements_file\n";
 
-open (FAKES, '<:encoding(utf8)', $fake_data_file)
-  or die "Could not open file '$fake_data_file' for reading: $!";
+open (FAKES, '<:encoding(utf8)', $replacements_file)
+  or die "Could not open file '$replacements_file' for reading: $!";
 
-my $fakes_count = 0;
+my $replacements_count = 0;
 while (<FAKES>) {
   chomp(); 
   my $line = $_;
@@ -168,7 +168,7 @@ while (<FAKES>) {
     my $replacements = $3;
     $class_constraint2replacements{$class . '_' . $constraint} = $replacements;
     print STDERR "Class $class (with constraint $constraint) and replacements $replacements\n";
-    $fakes_count++;
+    $replacements_count++;
     if ($class2constraints{$class}) { # if there already was a constraint for this class
       print STDERR "Note: multiple constraints for class $class.\n";
       $class2constraints{$class} .= "_";
@@ -176,10 +176,10 @@ while (<FAKES>) {
     $class2constraints{$class} .= $constraint;
   }
   else {
-    print STDERR "Unknown format of a line in file $fake_data_file:\n$line\n";
+    print STDERR "Unknown format of a line in file $replacements_file:\n$line\n";
   }
 }
-print STDERR "$fakes_count fake replacement rules have been read from file $fake_data_file:\n";
+print STDERR "$replacements_count replacement rules have been read from file $replacements_file:\n";
 
 close(FAKES);
 
