@@ -1,45 +1,89 @@
 #########################################################################################################
-# Fake data file
+# Replacements file
 #
 # structure:
-# NameTag class \t morphology constraints separated by | (or NoConstraint) \t replacements separated by |
+# NameTag class \t group \t morphology constraints separated by | (or NoConstraint) \t replacements separated by |
 #
 # The original idea is to have 10 items for each NameTag class
 #########################################################################################################
 
 
 # street number
-ah	NoConstraint	3|5|7|11|13|17|19|23|29|31
+ah	street_number	NoConstraint	3|5|7|11|13|17|19|23|29|31
 
 # phone/fax number
-at	NoConstraint	123 456 789|234 567 891|345 678 912|456 789 123|567 891 234|678 912 345|789 123 456|891 234 567|912 345 678|132 465 798
+at	phone_number	NoConstraint	123 456 789|234 567 891|345 678 912|456 789 123|567 891 234|678 912 345|789 123 456|891 234 567|912 345 678|132 465 798
 
 # zip codes
-az	NoConstraint	123 45|234 56|345 67|456 78|567 89|678 91|789 12|891 23|912 34|132 54
+az	zip_code	NoConstraint	123 45|234 56|345 67|456 78|567 89|678 91|789 12|891 23|912 34|132 54
 
 # first names (male)
-pf	Gender=Masc	Jiří|Jan|Petr|Josef|Pavel|Martin|Tomáš|Jaroslav|Miroslav|Zdeněk
+pf	first_name_male	Gender=Masc|Case=Nom	Jiří|Jan|Petr|Josef|Pavel|Martin|Tomáš|Jaroslav|Miroslav|Zdeněk
+pf	first_name_male	Gender=Masc|Case=Gen	Jiřího|Jana|Petra|Josefa|Pavla|Martina|Tomáše|Jaroslava|Miroslava|Zdeňka
+pf	first_name_male	Gender=Masc|Case=Dat	Jiřímu|Janovi|Petrovi|Josefovi|Pavlovi|Martinovi|Tomáši|Jaroslavovi|Miroslavovi|Zdeňkovi
+pf	first_name_male	Gender=Masc|Case=Acc	Jiřího|Jana|Petra|Josefa|Pavla|Martina|Tomáše|Jaroslava|Miroslava|Zdeňka
+pf	first_name_male	Gender=Masc|Case=Voc	Jiří|Jane|Petře|Josefe|Pavle|Martine|Tomáši|Jaroslave|Miroslave|Zdeňku
+pf	first_name_male	Gender=Masc|Case=Loc	Jiřím|Janovi|Petrovi|Josefovi|Pavlovi|Martinovi|Tomáši|Jaroslavovi|Miroslavovi|Zdeňkovi
+pf	first_name_male	Gender=Masc|Case=Ins	Jiřím|Janem|Petrem|Josefem|Pavlem|Martinem|Tomášem|Jaroslavem|Miroslavem|Zdeňkem
 
 # first names (female)
-pf	Gender=Fem	Jana|Marie|Eva|Hana|Anna|Lenka|Kateřina|Lucie|Věra|Alena
+pf	first_name_female	Gender=Fem|Case=Nom	Jana|Marie|Eva|Hana|Anna|Lenka|Kateřina|Lucie|Věra|Alena
+pf	first_name_female	Gender=Fem|Case=Gen	Jany|Marie|Evy|Hany|Anny|Lenky|Kateřiny|Lucie|Věry|Aleny
+pf	first_name_female	Gender=Fem|Case=Dat	Janě|Marii|Evě|Haně|Anně|Lence|Kateřině|Lucii|Věře|Aleně
+pf	first_name_female	Gender=Fem|Case=Acc	Janu|Marii|Evu|Hanu|Annu|Lenku|Kateřinu|Lucii|Věru|Alenu
+pf	first_name_female	Gender=Fem|Case=Voc	Jano|Marie|Evo|Hano|Anno|Lenko|Kateřino|Lucie|Věro|Aleno
+pf	first_name_female	Gender=Fem|Case=Loc	Janě|Marii|Evě|Haně|Anně|Lence|Kateřině|Lucii|Věře|Aleně
+pf	first_name_female	Gender=Fem|Case=Ins	Janou|Marií|Evou|Hanou|Annou|Lenkou|Kateřinou|Lucií|Věrou|Alenou
+
+# Surnames are grouped across gender, so they are twice as many (If I replace e.g. 'Horák' by 'Novák', I have to reserve 'Nováková' for 'Horáková'
 
 # surnames (male)
-ps	Gender=Masc	Novák|Svoboda|Novotný|Dvořák|Černý|Procházka|Kučera|Veselý|Horák|Němec
+ps	surname	Gender=Masc|Case=Nom	Novák|Svoboda|Novotný|Dvořák|Černý|Procházka|Kučera|Veselý|Horák|Němec|Pospíšil|Pokorný|Hájek|Král|Jelínek|Růžička|Beneš|Fiala|Sedláček|Doležal
+ps	surname	Gender=Masc|Case=Gen	Nováka|Svobody|Novotného|Dvořáka|Černého|Procházky|Kučery|Veselého|Horáka|Němce|Pospíšila|Pokorného|Hájka|Krále|Jelínka|Růžičky|Beneše|Fialy|Sedláčka|Doležala
+ps	surname	Gender=Masc|Case=Dat	Novákovi|Svobodovi|Novotnému|Dvořákovi|Černému|Procházkovi|Kučerovi|Veselému|Horákovi|Němcovi|Pospíšilovi|Pokornému|Hájkovi|Královi|Jelínkovi|Růžičkovi|Benešovi|Fialovi|Sedláčkovi|Doležalovi
+ps	surname	Gender=Masc|Case=Acc	Nováka|Svobodu|Novotného|Dvořáka|Černého|Procházku|Kučeru|Veselého|Horáka|Němce|Pospíšila|Pokorného|Hájka|Krále|Jelínka|Růžičku|Beneše|Fialu|Sedláčka|Doležala
+ps	surname	Gender=Masc|Case=Voc	Nováku|Svobodo|Novotný|Dvořáku|Černý|Procházko|Kučero|Veselý|Horáku|Němče|Pospíšile|Pokorný|Hájku|Králi|Jelínku|Růžičko|Beneši|Fialo|Sedláčku|Doležale
+ps	surname	Gender=Masc|Case=Loc	Novákovi|Svobodovi|Novotném|Dvořákovi|Černém|Procházkovi|Kučerovi|Veselém|Horákovi|Němcovi|Pospíšilovi|Pokorném|Hájkovi|Královi|Jelínkovi|Růžičkovi|Benešovi|Fialovi|Sedláčkovi|Doležalovi
+ps	surname	Gender=Masc|Case=Ins	Novákem|Svobodou|Novotným|Dvořákem|Černým|Procházkou|Kučerou|Veselým|Horákem|Němcem|Pospíšilem|Pokorným|Hájkem|Králem|Jelínkem|Růžičkou|Benešem|Fialou|Sedláčkem|Doležalem
 
 # surnames (female)
-ps	Gender=Fem	Nováková|Svobodová|Novotná|Dvořáková|Černá|Procházková|Kučerová|Veselá|Horáková|Němcová
+ps	surname	Gender=Fem|Case=Nom	Nováková|Svobodová|Novotná|Dvořáková|Černá|Procházková|Kučerová|Veselá|Horáková|Němcová|Pospíšilová|Pokorná|Hájková|Králová|Jelínková|Růžičková|Benešová|Fialová|Sedláčková|Doležalová
+ps	surname	Gender=Fem|Case=Gen	Novákové|Svobodové|Novotné|Dvořákové|Černé|Procházkové|Kučerové|Veselé|Horákové|Němcové|Pospíšilové|Pokorné|Hájkové|Králové|Jelínkové|Růžičkové|Benešové|Fialové|Sedláčkové|Doležalové
+ps	surname	Gender=Fem|Case=Dat	Novákové|Svobodové|Novotné|Dvořákové|Černé|Procházkové|Kučerové|Veselé|Horákové|Němcové|Pospíšilové|Pokorné|Hájkové|Králové|Jelínkové|Růžičkové|Benešové|Fialové|Sedláčkové|Doležalové
+ps	surname	Gender=Fem|Case=Acc	Novákovou|Svobodovou|Novotnou|Dvořákovou|Černou|Procházkovou|Kučerovou|Veselou|Horákovou|Němcovou|Pospíšilovou|Pokornou|Hájkovou|Královou|Jelínkovou|Růžičkovou|Benešovou|Fialovou|Sedláčkovou|Doležalovou
+ps	surname	Gender=Fem|Case=Voc	Nováková|Svobodová|Novotná|Dvořáková|Černá|Procházková|Kučerová|Veselá|Horáková|Němcová|Pospíšilová|Pokorná|Hájková|Králová|Jelínková|Růžičková|Benešová|Fialová|Sedláčková|Doležalová
+ps	surname	Gender=Fem|Case=Loc	Novákové|Svobodové|Novotné|Dvořákové|Černé|Procházkové|Kučerové|Veselé|Horákové|Němcové|Pospíšilové|Pokorné|Hájkové|Králové|Jelínkové|Růžičkové|Benešové|Fialové|Sedláčkové|Doležalové
+ps	surname	Gender=Fem|Case=Ins	Novákovou|Svobodovou|Novotnou|Dvořákovou|Černou|Procházkovou|Kučerovou|Veselou|Horákovou|Němcovou|Pospíšilovou|Pokornou|Hájkovou|Královou|Jelínkovou|Růžičkovou|Benešovou|Fialovou|Sedláčkovou|Doležalovou
 
 # streets, squares
-gs	NoConstraint	Krátká|Nádražní|Polní|Klášterní|Dlouhá|Kostelní|Pražská|Americká|Růžová|Květinová
+gs	street	Case=Nom	Krátká|Nádražní|Polní|Klášterní|Dlouhá|Kostelní|Pražská|Americká|Růžová|Květinová
+gs	street	Case=Gen	Krátké|Nádražní|Polní|Klášterní|Dlouhé|Kostelní|Pražské|Americké|Růžové|Květinové
+gs	street	Case=Dat	Krátké|Nádražní|Polní|Klášterní|Dlouhé|Kostelní|Pražské|Americké|Růžové|Květinové
+gs	street	Case=Acc	Krátkou|Nádražní|Polní|Klášterní|Dlouhou|Kostelní|Pražskou|Americkou|Růžovou|Květinovou
+gs	street	Case=Voc	Krátká|Nádražní|Polní|Klášterní|Dlouhá|Kostelní|Pražská|Americká|Růžová|Květinová
+gs	street	Case=Loc	Krátké|Nádražní|Polní|Klášterní|Dlouhé|Kostelní|Pražské|Americké|Růžové|Květinové
+gs	street	Case=Ins	Krátkou|Nádražní|Polní|Klášterní|Dlouhou|Kostelním|Pražskou|Americkou|Růžovou|Květinovou
 
 # cities/towns
-gu	NoConstraint	Praha|Brno|Ostrava|Plzeň|Liberec|Olomouc|Pardubice|Zlín|Havířov|Kladno
+gu	town	Case=Nom	Praha|Brno|Ostrava|Plzeň|Liberec|Olomouc|Pardubice|Zlín|Havířov|Kladno
+gu	town	Case=Gen	Prahy|Brna|Ostravy|Plzně|Liberce|Olomouce|Pardubic|Zlína|Havířova|Kladna
+gu	town	Case=Dat	Praze|Brnu|Ostravě|Plzni|Liberci|Olomouci|Pardubicích|Zlínu|Havířovu|Kladnu
+gu	town	Case=Acc	Prahu|Brno|Ostravu|Plzeň|Liberec|Olomouc|Pardubice|Zlín|Havířov|Kladno
+gu	town	Case=Voc	Praho|Brno|Ostravo|Plzni|Liberci|Olomouci|Pardubice|Zlíne|Havířove|Kladno
+gu	town	Case=Loc	Praze|Brně|Ostravě|Plzni|Liberci|Olomouci|Pardubicích|Zlíně|Havířově|Kladně
+gu	town	Case=Ins	Prahou|Brnem|Ostravou|Plzní|Libercem|Olomoucí|Pardubicemi|Zlínem|Havířovem|Kladnem
 
 # companies, concerns...
-if	NoConstraint	ŠKODA|ČEZ|AGROFERT|Hyundai|Unipetrol|Lidl|RWE|Kaufland|Albert|FORTUNA
+if	company	Case=Nom	ŠKODA|ČEZ|AGROFERT|Hyundai|Unipetrol|Lidl|RWE|Kaufland|Albert|FORTUNa
+if	company	Case=Gen	ŠKODy|ČEZu|AGROFERTu|Hyundaie|Unipetrolu|Lidlu|RWE|Kauflandu|Albertu|FORTUNy
+if	company	Case=Dat	ŠKODě|ČEZu|AGROFERTu|Hyundaii|Unipetrolu|Lidlu|RWE|Kauflandu|Albertu|FORTUNě
+if	company	Case=Acc	ŠKODu|ČEZ|AGROFERT|Hyundai|Unipetrol|Lidl|RWE|Kaufland|Albert|FORTUNu
+if	company	Case=Voc	ŠKODo|ČEZe|AGROFERTe|Hyundaii|Unipetrole|Lidle|RWE|Kauflande|Alberte|FORTUNo
+if	company	Case=Loc	ŠKODě|ČEZu|AGROFERTu|Hyundaii|Unipetrolu|Lidlu|RWE|Kauflandu|Albertu|FORTUNě
+if	company	Case=Ins	ŠKODou|ČEZem|AGROFERTem|Hyundaiem|Unipetrolem|Lidlem|RWE|Kauflandem|Albertem|FORTUNou
 
 # email address
-me	NoConstraint	abc@gmail.com|def@gmail.com|ghi@gmail.com|jkl@gmail.com|mno@gmail.com|pqr@gmail.com|stu@gmail.com|vwx@gmail.com|yza@gmail.com|bcd@gmail.com
+me	email	NoConstraint	abc@gmail.com|def@gmail.com|ghi@gmail.com|jkl@gmail.com|mno@gmail.com|pqr@gmail.com|stu@gmail.com|vwx@gmail.com|yza@gmail.com|bcd@gmail.com
 
 #NameTag offers these values:
 

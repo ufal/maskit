@@ -49,13 +49,14 @@ while (<LEMMAS>) {
   my $line_orig = $line;
   $line =~ s/\s*#.*$//; # get rid of comments at the end of content lines
 
-  if ($line =~ /^([^\t]+)\t([^\t]+)\t([^\t]+)$/) { # a line with class, constraint and '|'-separated list of words in 1st case singular
+  if ($line =~ /^([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)$/) { # a line with class, constraint and '|'-separated list of words in 1st case singular
     my $class = $1;
-    my $constraint = $2;
-    my $replacements = $3;
+    my $group = $2;
+    my $constraint = $3;
+    my $replacements = $4;
     $count++;
     print $out "$line_orig\n"; # the original line with comments if any
-    generate($out, $class, $constraint, $replacements);
+    generate($out, $class, $group, $constraint, $replacements);
   }
   else {
     print STDERR "Unknown format of a line in file $file_name:\n$line_orig\n";
@@ -72,7 +73,7 @@ close(LEMMAS);
 #################
 
 sub generate {
-  my ($file, $class, $constraint, $replacements) = @_;
+  my ($file, $class, $group, $constraint, $replacements) = @_;
   my %lemma2tag = ();
   my @words = split('\|', $replacements);
   foreach my $word (@words) {
@@ -109,7 +110,7 @@ sub generate {
       $forms .= $form;
     }
     my $constraint_new = ($constraint eq 'NoConstraint') ? "Case=$case" : "$constraint|Case=$case";
-    print $file "$class\t$constraint_new\t$forms\n";
+    print $file "$class\t$group\t$constraint_new\t$forms\n";
     $case_number++;
   }
 }

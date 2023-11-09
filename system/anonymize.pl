@@ -149,25 +149,28 @@ print STDERR "\n";
 ###################################################################################
 
 my %class_constraint2replacements; # NameTag class + constraint => replacements separated by |; the class is separated by '_' from the constraint
+my %class_constraint2group; # grouping e.g. first names across cases and surnames across cases and genders together
 my %class2constraints; # which constraints does the class require (if any); the individual constraints are separated by '_'; an empty constraint is represented by 'NoConstraint'
 
 print STDERR "Reading replacements from $replacements_file\n";
 
-open (FAKES, '<:encoding(utf8)', $replacements_file)
+open (REPLACEMENTS, '<:encoding(utf8)', $replacements_file)
   or die "Could not open file '$replacements_file' for reading: $!";
 
 my $replacements_count = 0;
-while (<FAKES>) {
+while (<REPLACEMENTS>) {
   chomp(); 
   my $line = $_;
   $line =~ s/#.*$//; # get rid of comments
   next if ($line =~ /^\s*$/); # empty line
-  if ($line =~ /^([^\t]+)\t([^\t]+)\t([^\t]+)$/) {
+  if ($line =~ /^([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)$/) {
     my $class = $1;
-    my $constraint = $2;
-    my $replacements = $3;
+    my $group = $2;
+    my $constraint = $3;
+    my $replacements = $4;
     $class_constraint2replacements{$class . '_' . $constraint} = $replacements;
-    print STDERR "Class $class (with constraint $constraint) and replacements $replacements\n";
+    $class_constraint2group{$class . '_' . $constraint} = $group;
+    print STDERR "Class $class with constraint $constraint, group $group and replacements $replacements\n";
     $replacements_count++;
     if ($class2constraints{$class}) { # if there already was a constraint for this class
       print STDERR "Note: multiple constraints for class $class.\n";
@@ -181,7 +184,7 @@ while (<FAKES>) {
 }
 print STDERR "$replacements_count replacement rules have been read from file $replacements_file:\n";
 
-close(FAKES);
+close(REPLACEMENTS);
 
 
 ###################################################################################
@@ -355,9 +358,10 @@ if ($root) {
 # Now we have dependency trees of the sentences; let us search for phrases to be anonymized
 ###########################################################################################
 
-my %class_constraint2next_index = ();
+my %group2next_index = ();
 
-my %replaced = (); # a hash keeping info about lemmas and their replacements (class . '_' . lemma -> replacement lemma)
+my %group_stem2index = (); # a hash keeping info about stems and their replacement index (group . '_' . stem -> replacement index)
+                           # this way I know that Nezbeda, Nezbedová, Nezbedovou etc. (group 'surname', stem 'Nezbed') belong together
 
 # print_log_header();
 
@@ -393,10 +397,9 @@ foreach $root (@trees) {
         next;
       }
       print STDERR " - the constraint '$constraint' for form '$form' matches.\n";
-      my $replacement_lemma = get_replacement($node, $class, $constraint);
-      my $replacement_form = get_form($replacement_lemma, $tag);
-      print STDERR "    - replacement in class $class: '$form' -> '$replacement_form'\n";
-      set_attr($node, 'replacement', $replacement_form);
+      my $replacement = get_replacement($node, $class, $constraint);
+      print STDERR "    - replacement in class $class: '$form' -> '$replacement'\n";
+      set_attr($node, 'replacement', $replacement);
       last;
     }
   }  
@@ -482,13 +485,19 @@ sub get_NameTag_class {
 sub get_replacement {
   my ($node, $class, $constraint) = @_;
 
-  # check if this lemma with this NameTag class has already been replaced
   my $lemma = attr($node, 'lemma') // '';
+  my $stem = get_stem_from_lemma($lemma);
+
+=item
+
+  # check if this lemma with this NameTag class has already been replaced
   my $replacement = $replaced{$class . '_' . $lemma};
   if ($replacement) {
     return $replacement;
   }
-  
+
+=cut
+
   my $class_constraint = $class . '_' . $constraint;
   my $replacements = $class_constraint2replacements{$class_constraint};
   if (!$replacements) {
@@ -497,9 +506,22 @@ sub get_replacement {
   }
   print STDERR "  - found replacements '$replacements' for class '$class' and constraint '$constraint'\n";
   my @a_replacements = split('\|', $replacements);
-  my $replacement_index = $class_constraint2next_index{$class_constraint} // 0;
-  $class_constraint2next_index{$class_constraint}++;
+  my $group = $class_constraint2group{$class_constraint};
+  
+  # check if this stem in this group has already been replaced
+  my $replacement_index = $group_stem2index{$group . '_' . $stem};
+  if (defined($replacement_index)) {
+    print STDERR "get_replacement: Found a previously assigned replacement index for group $group and stem $stem: $replacement_index\n";
+  }
+  my $new = 0;
+  if (!defined($replacement_index)) { # this stem within this group has not yet been seen, so use a new index
+    print STDERR "get_replacement: Unseen group $group and stem $stem, assigning a new replacement index\n";
+    $replacement_index = $group2next_index{$group} // 0;
+    $group2next_index{$group}++;
+    $new = 1;
+  }
   my $number_of_replacements = scalar(@a_replacements);
+  my $replacement;
   if ($replacement_index >= $number_of_replacements) { # maximum index exceeded
     $replacement = '[' . $class . '_#' . $replacement_index . ']';
     print STDERR "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n";
@@ -507,9 +529,24 @@ sub get_replacement {
   else {
     $replacement = $a_replacements[$replacement_index];
   }
-  
-  $replaced{$class . '_' . $lemma} = $replacement;
+  if ($new) { # let us store the index for this stem with this group
+    print STDERR "get_replacement: Storing a newly assigned replacement index ($replacement_index) for group $group and stem $stem\n";
+    $group_stem2index{$group . '_' . $stem} = $replacement_index;
+  }
   return $replacement;
+}
+
+
+sub get_stem_from_lemma {
+  my $lemma = shift;
+  $lemma =~ s/ová$//; # Sedláčková (Sedláček), but also Vondrušková (Vondruška)
+  $lemma =~ s/á$//; # Mírovská
+  $lemma =~ s/ý$//; # Mírovský
+  $lemma =~ s/í$//; # Krejčí
+  $lemma =~ s/a$//; # Vondruška (Vondrušková), Svoboda (Svobodová)
+  $lemma =~ s/[rlkšs]$//; # Sedláček (Sedláčková), Orel (Orlová), Burger (Burgrová), Lukeš (Lukšová) etc.
+  $lemma =~ s/e$//; # cont.
+  return $lemma;
 }
 
 
@@ -1045,7 +1082,7 @@ sub root {
   return $node;
 }
 
-
+=item
 
 sub get_form {
   my ($lemma, $tag) = @_;
@@ -1080,6 +1117,7 @@ sub get_form {
 
 }
 
+=cut
 
 
 ######### PARSING THE TEXT WITH UDPIPE #########
@@ -1176,7 +1214,9 @@ sub call_udpipe {
         # print STDERR "UDPipe result:\n$result\n";
         return $result;
     } else {
-        print STDERR "Chyba: " . $res->status_line . "\n";
+        print STDERR "call_udpipe: URL: $url\n";
+        print STDERR "call_udpipe: Text: $text\n";
+        print STDERR "call_udpipe: Chyba: " . $res->status_line . "\n";
         return '';
     }
 }
@@ -1274,7 +1314,8 @@ sub call_nametag_part {
         # print STDERR "NameTag result:\n$result\n";
         return $result;
     } else {
-        print STDERR "NameTag error: " . $res->status_line . "\n";
+        print STDERR "call_nametag_part: URL: $url\n";
+        print STDERR "call_nametag_part: Chyba: " . $res->status_line . "\n";
         return $conll; 
     }
 }
