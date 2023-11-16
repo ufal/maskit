@@ -15,8 +15,33 @@ use File::Basename;
 # STDIN and STDOUT in UTF-8
 binmode STDIN, ':encoding(UTF-8)';
 binmode STDOUT, ':encoding(UTF-8)';
+binmode STDERR, ':encoding(UTF-8)';
 
 my $VER = '0.1'; # version of the program
+
+#############################
+# Colours for html
+
+my $color_replacement_text = 'darkred'; # general replacement colour
+
+# NameTag-class specific replacement colours
+my $color_replacement_gu = 'orange'; # town/city
+my $color_replacement_gs = 'magenta'; # street name
+my $color_replacement_ah = 'magenta'; # street number
+my $color_replacement_az = 'magenta'; # zip code
+my $color_replacement_pf = 'red'; # first name
+my $color_replacement_ps = 'red'; # surname
+my $color_replacement_me = 'pink'; # e-mail
+my $color_replacement_if = 'darkcyan'; # company
+
+
+# info text colours
+my $color_orig_text = 'darkgreen';
+my $color_source_brackets = 'darkblue';
+
+
+#######################################
+
 
 # default output format
 my $OUTPUT_FORMAT_DEFAULT = 'txt';
@@ -34,7 +59,7 @@ my $replacements_file;
 my $output_format;
 my $diff;
 my $add_NE;
-my $store_conllu;
+my $store_format;
 my $version;
 my $help;
 
@@ -46,8 +71,8 @@ GetOptions(
     'rf|replacements-file=s' => \$replacements_file, # the name of the file with replacements
     'of|output-format=s'     => \$output_format, # output format, possible values: txt, html, conllu
     'd|diff'                 => \$diff, # display the original expressions next to the anonymized versions
-    'ne|named-entities'      => \$add_NE, # add named entities as marked by NameTag to the anonymized versions
-    'sc|store-conllu'        => \$store_conllu, # should the result be logged as a conllu file?
+    'ne|named-entities=s'    => \$add_NE, # add named entities as marked by NameTag (1: to the anonymized versions, 2: to all recognized tokens)
+    'sf|store-format=s'      => \$store_format, # log the result in the given format: txt, html, conllu
     'v|version'              => \$version, # print the version of the program and exit
     'h|help'                 => \$help, # print a short help and exit
 );
@@ -72,8 +97,8 @@ options:  -i|--input-file [input text file name]
          -rf|--replacements-file [replacements file name]
          -of|--output-format [output format: txt (default), html, conllu]
           -d|--diff (display the original expressions next to the anonymized versions)
-         -ne|--named-entities (add NameTag marks to the anonymized versions)
-         -sc|--store-conllu (log the output of UDPipe parser, NameTag and Anonymizer to a CONLL-U file)
+         -ne|--named-entities [scope: 1 - add NameTag marks to the anonymized versions, 2 - to all recognized tokens]
+         -sf|--store-format (log the output in the given format: txt, html, conllu)
           -v|--version (prints the version of the program and ends)
           -h|--help (prints a short help and ends)
 END_TEXT
@@ -134,11 +159,26 @@ if ($diff) {
 }
 
 if ($add_NE) {
-  print STDERR " - add named entities as marked by NameTag to the anonymized versions\n";
+  if ($add_NE == 1) {
+    print STDERR " - add named entities as marked by NameTag to the anonymized versions\n";
+  }
+  elsif ($add_NE == 2) {
+    print STDERR " - add named entities as marked by NameTag to all recognized tokens\n";  
+  }
+  else {
+    print STDERR " - unknown value of -ne/--named-entities parameter ($add_NE); no NameTag marks will be printed\n";    
+  }
 }
 
-if ($store_conllu) {
-  print STDERR " - log output in a conllu file; includes output of udpipe and nametag\n";
+$store_format = lc($store_format) if $store_format;
+if ($store_format) {
+  if ($store_format =~ /^(txt|html|conllu)$/) {
+    print STDERR " - log the output to a file in $store_format\n";
+  }
+  else {
+    print STDERR " - unknown format for logging the output ($store_format); the output will not be logged\n";
+    $store_format = undef;
+  }
 }
 
 
@@ -376,31 +416,34 @@ foreach $root (@trees) {
     my $tag = attr($node, 'xpostag') // '';
     my $form = attr($node, 'form') // '';
     my $feats = attr($node, 'feats') // '';
-    my $class = get_NameTag_class($node) // '';
+    my $classes = get_NameTag_classes($node) // '';
 
-    print STDERR "\nProcessing form '$form' with NameTag class '$class' and feats '$feats'\n";
+    print STDERR "\nProcessing form '$form' with NameTag classes '$classes' and feats '$feats'\n";
     
-    next if !$class; # no NameTag class found here
+    next if !$classes; # no NameTag class found here
     
-    my $constraints = $class2constraints{$class};
-    if (!$constraints) {
-      print STDERR "No constraints for NE class '$class', skipping.\n";
-      next;
-    }
-    print STDERR "Found constraints '$constraints' for NE class '$class'\n";
-
-    foreach my $constraint (split(/_/, $constraints)) { # split the constraints by separator '_' and work with one constraint at a time
-
-      my $matches = check_constraint($node, $form, $constraint); # check if the constraint is met (e.g., Gender=Fem); empty constraint is represented by 'NoConstraint'
-      if (!$matches) {
-        print STDERR " - the constraint '$constraint' for form '$form' is not met.\n";
+    foreach my $class (split('~', $classes)) {
+    
+      my $constraints = $class2constraints{$class};
+      if (!$constraints) {
+        print STDERR "No constraints for NE class '$class', skipping.\n";
         next;
       }
-      print STDERR " - the constraint '$constraint' for form '$form' matches.\n";
-      my $replacement = get_replacement($node, $class, $constraint);
-      print STDERR "    - replacement in class $class: '$form' -> '$replacement'\n";
-      set_attr($node, 'replacement', $replacement);
-      last;
+      print STDERR "Found constraints '$constraints' for NE class '$class'\n";
+
+      foreach my $constraint (split(/_/, $constraints)) { # split the constraints by separator '_' and work with one constraint at a time
+
+        my $matches = check_constraint($node, $form, $constraint); # check if the constraint is met (e.g., Gender=Fem); empty constraint is represented by 'NoConstraint'
+        if (!$matches) {
+          print STDERR " - the constraint '$constraint' for form '$form' is not met.\n";
+          next;
+        }
+        print STDERR " - the constraint '$constraint' for form '$form' matches.\n";
+        my $replacement = get_replacement($node, $class, $constraint);
+        print STDERR "    - replacement in class $class: '$form' -> '$replacement'\n";
+        set_attr($node, 'replacement', $replacement);
+        last;
+      }
     }
   }  
 }
@@ -411,9 +454,10 @@ foreach $root (@trees) {
 my $output = get_output($output_format); 
 print $output;
 
-if ($store_conllu) { # log the anonymized text in the conllu format in a file
-  $output = get_output('conllu') if $output_format ne 'conllu';
-  open(OUT, '>:encoding(utf8)', "$script_dir/log/$input_file.conllu") or die "Cannot open file '$script_dir/log/$input_file.conllu' for writing: $!";
+if ($store_format) { # log the anonymized text in the conllu format in a file
+  $output = get_output($store_format) if $store_format ne $output_format;
+  my $output_file = basename($input_file);
+  open(OUT, '>:encoding(utf8)', "$script_dir/log/$output_file.$store_format") or die "Cannot open file '$script_dir/log/$output_file.$store_format' for writing: $!";
   print OUT $output;
   close(OUT);
 }
@@ -461,22 +505,25 @@ sub check_constraint {
 }
 
 
-sub get_NameTag_class {
+sub get_NameTag_classes {
   my $node = shift;
   my $ne = get_misc_value($node, 'NE') // '';
-  if ($ne =~ /([a-z][a-z])_/) { # get the NE class, i.e. "ps"
-    my $class = $1;
+  if ($ne) {
+    my @values = $ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g;
+    my $classes = join '~', @values;  
+    print STDERR "get_NameTag_classes: $ne -> $classes\n";
+
     my $lemma = attr($node, 'lemma') // '';
     if ($lemma eq '.') { # '.' in e.g. 'ul.' or 'nám.'
       return undef;
     }
-    if ($class eq 'gs' and ($lemma eq 'ulice')) {
+    if ($lemma eq 'ulice') {
       return undef;
     }
-    if ($class eq 'ah' and ($lemma eq 'číslo' or $lemma eq 'č')) {
+    if ($lemma eq 'číslo' or $lemma eq 'č') {
       return undef;
     }
-    return $class;
+    return $classes;
   }
   return undef;
 }
@@ -705,6 +752,49 @@ sub get_output {
   
   if ($format eq 'html') {
     $output .= "<html>\n";
+    $output .= <<END_OUTPUT_HEAD;
+<head>
+  <style>
+        /* source classes colours */
+        .replacement-text {
+            color: $color_replacement_text;
+            text-decoration: underline;
+            font-weight: bold
+        }
+        .replacement-text-gu {
+            color: $color_replacement_gu;
+        }
+        .replacement-text-gs {
+            color: $color_replacement_gs;
+        }
+        .replacement-text-ah {
+            color: $color_replacement_ah;
+        }
+        .replacement-text-az {
+            color: $color_replacement_az;
+        }
+        .replacement-text-pf {
+            color: $color_replacement_pf;
+        }
+        .replacement-text-ps {
+            color: $color_replacement_ps;
+        }
+        .replacement-text-me {
+            color: $color_replacement_me;
+        }
+        .replacement-text-if {
+            color: $color_replacement_if;
+        }
+        .orig-text {
+            color: $color_orig_text;
+        }
+        .orig-brackets {
+            color: $color_source_brackets;
+            vertical-align: sub;
+        }
+  </style>
+</head>
+END_OUTPUT_HEAD
     $output .= "<body>\n";
   }
   
@@ -777,29 +867,61 @@ sub get_output {
     foreach my $node (@nodes) {
     
       # COLLECT INFO ABOUT THE TOKEN
-      my $form = attr($node, 'replacement') // attr($node, 'form');
-      my $class = get_NameTag_class($node);
       my $replacement = attr($node, 'replacement');
-      if (($diff and $replacement) or ($add_NE and $class)) { # should the original form and/or NE class be displayed as well?
-        $form .= '_[';
-        if ($add_NE and $class) {
-          $form .= $class;
-          $form .= '_' if ($diff and $replacement);
-        }
-        if ($diff and $replacement) {
-          $form .= attr($node, 'form');
-        }
-        $form .= ']';
-      }
+      my $form = $replacement // attr($node, 'form');
+      my $classes = get_NameTag_classes($node);
 
       my $span_start = '';
       my $span_end = '';
-      my $type_span = '';
+      my $info_span = '';
 
+      if ($replacement and $format eq 'html') {
+        my $span_class = 'replacement-text';
+        $span_class .= ' replacement-text-gu' if ($classes =~/\bgu\b/);
+        $span_class .= ' replacement-text-gs' if ($classes =~/\bgs\b/);
+        $span_class .= ' replacement-text-ah' if ($classes =~/\bah\b/);
+        $span_class .= ' replacement-text-az' if ($classes =~/\baz\b/);
+        $span_class .= ' replacement-text-pf' if ($classes =~/\bpf\b/);
+        $span_class .= ' replacement-text-ps' if ($classes =~/\bps\b/);
+        $span_class .= ' replacement-text-me' if ($classes =~/\bme\b/);
+        $span_class .= ' replacement-text-if' if ($classes =~/\bif\b/);
+        $span_start = "<span class=\"$span_class\">";
+        $span_end = '</span>';
+      }
+      
+      if (($diff and $replacement) or ($add_NE and $classes and $replacement) or ($add_NE == 2 and $classes)) { # should the original form and/or NE class be displayed as well?
+        if ($format eq 'txt') {
+          $info_span = '_[';
+        }
+        elsif ($format eq 'html') {
+          $info_span = '<span class="orig-brackets">[';
+        }
+        if ($add_NE and $classes) {
+          $info_span .= $classes;
+          $info_span .= '/' if ($diff and $replacement);
+        }
+        if ($diff and $replacement) {
+          if ($format eq 'html') {
+            $info_span .= '<span class="orig-text">';
+          }
+          $info_span .= attr($node, 'form');
+          if ($format eq 'html') {
+            $info_span .= '</span>';
+          }
+        }
+        if ($format eq 'txt') {
+          $info_span .= ']';
+        }
+        elsif ($format eq 'html') {
+          $info_span .= ']</span>';
+        }
+      }
+
+      
       # PRINT THE TOKEN
       if ($format =~ /^(txt|html)$/) {
         my $SpaceAfter = get_misc_value($node, 'SpaceAfter') // '';
-        $output .= "$space_before$span_start$form$span_end$type_span";
+        $output .= "$space_before$span_start$form$span_end$info_span";
         $space_before = $SpaceAfter eq 'No' ? '' : ' '; # this way there will not be space after the last token of the sentence
       }
       elsif ($format eq 'conllu') {
