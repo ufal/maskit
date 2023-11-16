@@ -510,8 +510,8 @@ sub get_NameTag_classes {
   my $ne = get_misc_value($node, 'NE') // '';
   if ($ne) {
     my @values = $ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g;
-    my $classes = join '~', @values;  
-    print STDERR "get_NameTag_classes: $ne -> $classes\n";
+    my $classes = join '~', @values;
+    # print STDERR "get_NameTag_classes: $ne -> $classes\n";
 
     my $lemma = attr($node, 'lemma') // '';
     if ($lemma eq '.') { # '.' in e.g. 'ul.' or 'nám.'
@@ -523,6 +523,27 @@ sub get_NameTag_classes {
     if ($lemma eq 'číslo' or $lemma eq 'č') {
       return undef;
     }
+    if ($lemma eq '/') { # '/' in e.g. 'Jiráskova 854/3'
+      return undef;
+    }
+    # ZIP codes
+    if ($lemma =~ /^[1-9][0-9][0-9]$/ and $classes =~ /\ba[zt]\b/) { # looks like the first part of a ZIP code
+      my @ZIP2_children = grep {attr($_, 'lemma') =~ /^[0-9][0-9]$/ and get_NameTag_classes($_) eq 'ay' } $node->getAllChildren;
+      if (scalar(@ZIP2_children) == 1) { # it really looks like a ZIP code
+        return 'ax'; # a fake class for the first part of a ZIP code
+      }
+    }
+    if ($lemma =~ /^[0-9][0-9]$/ and $classes =~ /\ba[zt]\b/) { # looks like the second part of a ZIP code
+      my $parent = $node->getParent;
+      my $parent_lemma = attr($parent, 'lemma') // '';
+      my $parent_ne = get_misc_value($parent, 'NE') // '';
+      my @parent_values = $parent_ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g;
+      my $parent_classes = join '~', @parent_values;
+      if ($parent_lemma =~ /^[1-9][0-9][0-9]$/ and $parent_classes=~ /\ba[zt]\b/) { # the parent looks like the first part of a ZIP code
+        return 'ay'; # a fake class for the second part of a ZIP code
+      }
+    }
+    
     return $classes;
   }
   return undef;
@@ -880,7 +901,7 @@ END_OUTPUT_HEAD
         $span_class .= ' replacement-text-gu' if ($classes =~/\bgu\b/);
         $span_class .= ' replacement-text-gs' if ($classes =~/\bgs\b/);
         $span_class .= ' replacement-text-ah' if ($classes =~/\bah\b/);
-        $span_class .= ' replacement-text-az' if ($classes =~/\baz\b/);
+        $span_class .= ' replacement-text-az' if ($classes =~/\ba[xyz]\b/);
         $span_class .= ' replacement-text-pf' if ($classes =~/\bpf\b/);
         $span_class .= ' replacement-text-ps' if ($classes =~/\bps\b/);
         $span_class .= ' replacement-text-me' if ($classes =~/\bme\b/);

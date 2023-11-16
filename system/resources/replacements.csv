@@ -17,6 +17,10 @@ at	phone_number	NoConstraint	123 456 789|234 567 891|345 678 912|456 789 123|567
 # zip codes
 az	zip_code	NoConstraint	123 45|234 56|345 67|456 78|567 89|678 91|789 12|891 23|912 34|132 54
 
+# fake classes for the first and second part of zip codes
+ax	zip_code_1	NoConstraint	135|246|357|468|579|680|791|802|913|153
+ay	zip_code_2	NoConstraint	79|80|91|02|13|24|35|46|57|68
+
 # first names (male)
 pf	first_name_male	Gender=Masc|Case=Nom	Jiří|Jan|Petr|Josef|Pavel|Martin|Tomáš|Jaroslav|Miroslav|Zdeněk
 pf	first_name_male	Gender=Masc|Case=Gen	Jiřího|Jana|Petra|Josefa|Pavla|Martina|Tomáše|Jaroslava|Miroslava|Zdeňka
