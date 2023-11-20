@@ -98,7 +98,7 @@ options:  -i|--input-file [input text file name]
          -of|--output-format [output format: txt (default), html, conllu]
           -d|--diff (display the original expressions next to the anonymized versions)
          -ne|--named-entities [scope: 1 - add NameTag marks to the anonymized versions, 2 - to all recognized tokens]
-         -sf|--store-format (log the output in the given format: txt, html, conllu)
+         -sf|--store-format [format: log the output in the given format: txt, html, conllu]
           -v|--version (prints the version of the program and ends)
           -h|--help (prints a short help and ends)
 END_TEXT
@@ -454,7 +454,7 @@ foreach $root (@trees) {
 my $output = get_output($output_format); 
 print $output;
 
-if ($store_format) { # log the anonymized text in the conllu format in a file
+if ($store_format) { # log the anonymized text in the given format in a file
   $output = get_output($store_format) if $store_format ne $output_format;
   my $output_file = basename($input_file);
   open(OUT, '>:encoding(utf8)', "$script_dir/log/$output_file.$store_format") or die "Cannot open file '$script_dir/log/$output_file.$store_format' for writing: $!";
@@ -509,7 +509,7 @@ sub get_NameTag_classes {
   my $node = shift;
   my $ne = get_misc_value($node, 'NE') // '';
   if ($ne) {
-    my @values = $ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g;
+    my @values = $ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g; # get an array of the classes
     my $classes = join '~', @values;
     # print STDERR "get_NameTag_classes: $ne -> $classes\n";
 
@@ -554,6 +554,7 @@ sub get_replacement {
   my ($node, $class, $constraint) = @_;
 
   my $lemma = attr($node, 'lemma') // '';
+  my $form = attr($node, 'form') // '';
   my $stem = get_stem_from_lemma($lemma);
 
 =item
@@ -576,26 +577,38 @@ sub get_replacement {
   my @a_replacements = split('\|', $replacements);
   my $group = $class_constraint2group{$class_constraint};
   
+  my $replacement;
   # check if this stem in this group has already been replaced
   my $replacement_index = $group_stem2index{$group . '_' . $stem};
   if (defined($replacement_index)) {
     print STDERR "get_replacement: Found a previously assigned replacement index for group $group and stem $stem: $replacement_index\n";
+    my $number_of_replacements = scalar(@a_replacements);
+    if ($replacement_index >= $number_of_replacements) { # maximum index exceeded
+      $replacement = '[' . $class . '_#' . $replacement_index . ']';
+      print STDERR "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n";
+    }
+    else {
+      $replacement = $a_replacements[$replacement_index];
+    }
   }
   my $new = 0;
-  if (!defined($replacement_index)) { # this stem within this group has not yet been seen, so use a new index
+  while (!defined($replacement_index)) { # this stem within this group has not yet been seen, so use a new index
     print STDERR "get_replacement: Unseen group $group and stem $stem, assigning a new replacement index\n";
     $replacement_index = $group2next_index{$group} // 0;
     $group2next_index{$group}++;
     $new = 1;
-  }
-  my $number_of_replacements = scalar(@a_replacements);
-  my $replacement;
-  if ($replacement_index >= $number_of_replacements) { # maximum index exceeded
-    $replacement = '[' . $class . '_#' . $replacement_index . ']';
-    print STDERR "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n";
-  }
-  else {
-    $replacement = $a_replacements[$replacement_index];
+    my $number_of_replacements = scalar(@a_replacements);
+    if ($replacement_index >= $number_of_replacements) { # maximum index exceeded
+      $replacement = '[' . $class . '_#' . $replacement_index . ']';
+      print STDERR "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n";
+    }
+    else {
+      $replacement = $a_replacements[$replacement_index];
+      if ($replacement eq $form) { # the replacement is accidentally equal to the original form (e.g., Praze vs. Praze); let us skip this replacement index
+        print STDERR "    - the replacement is equal to the original form ($form); let us skip this replacement index ($replacement_index)\n";
+        $replacement_index = undef; # run the while cycle one more time to use the next replacement index
+      }
+    }
   }
   if ($new) { # let us store the index for this stem with this group
     print STDERR "get_replacement: Storing a newly assigned replacement index ($replacement_index) for group $group and stem $stem\n";
