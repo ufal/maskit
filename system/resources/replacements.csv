@@ -89,6 +89,10 @@ if	company	Case=Ins	ŠKODou|ČEZem|AGROFERTem|Hyundaiem|Unipetrolem|Lidlem|RWE|K
 # email address
 me	email	NoConstraint	abc@gmail.com|def@gmail.com|ghi@gmail.com|jkl@gmail.com|mno@gmail.com|pqr@gmail.com|stu@gmail.com|vwx@gmail.com|yza@gmail.com|bcd@gmail.com
 
+# IČO (fake mark)
+nc	ICO	NoConstraint	12345678|23456789|34567890|45678901|56789012|67890123|78901234|89012345|90123456|01234567
+
+
 #NameTag offers these values:
 
 #NE containers

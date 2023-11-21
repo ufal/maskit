@@ -17,7 +17,7 @@ binmode STDIN, ':encoding(UTF-8)';
 binmode STDOUT, ':encoding(UTF-8)';
 binmode STDERR, ':encoding(UTF-8)';
 
-my $VER = '0.1'; # version of the program
+my $VER = '0.1 20231121'; # version of the program
 
 #############################
 # Colours for html
@@ -33,7 +33,7 @@ my $color_replacement_pf = 'red'; # first name
 my $color_replacement_ps = 'red'; # surname
 my $color_replacement_me = 'pink'; # e-mail
 my $color_replacement_if = 'darkcyan'; # company
-
+my $color_replacement_nc = 'blue'; # IČO
 
 # info text colours
 my $color_orig_text = 'darkgreen';
@@ -416,7 +416,7 @@ foreach $root (@trees) {
     my $tag = attr($node, 'xpostag') // '';
     my $form = attr($node, 'form') // '';
     my $feats = attr($node, 'feats') // '';
-    my $classes = get_NameTag_classes($node) // '';
+    my $classes = get_NameTag_marks($node) // '';
 
     print STDERR "\nProcessing form '$form' with NameTag classes '$classes' and feats '$feats'\n";
     
@@ -504,49 +504,143 @@ sub check_constraint {
   return 1;
 }
 
+=item get_NameTag_marks
 
-sub get_NameTag_classes {
+Get a list of NameTag marks assigned to the given node; the return value is a string of the marks divided by '~'.
+Fake marks are assigned for cases not recognized by NameTag:
+
+ax - the first part (three digits) of a ZIP code
+ay - the second part (two digits) of a ZIP code
+
+nc - IČO
+
+=cut
+
+sub get_NameTag_marks {
+  my $node = shift;
+  my @values = get_NE_values($node);
+  my $marks = join '~', @values;
+  # print STDERR "get_NameTag_marks: $ne -> $marks\n";
+
+  my $lemma = attr($node, 'lemma') // '';
+  if ($lemma eq '.') { # '.' in e.g. 'ul.' or 'nám.'
+    return undef;
+  }
+  if ($lemma eq 'ulice') {
+    return undef;
+  }
+  if ($lemma eq 'číslo' or $lemma eq 'č') {
+    return undef;
+  }
+  if ($lemma eq '/') { # '/' in e.g. 'Jiráskova 854/3'
+    return undef;
+  }
+  # ZIP codes
+  if ($lemma =~ /^[1-9][0-9][0-9]$/ and $marks =~ /\ba[zt]\b/) { # looks like the first part of a ZIP code
+    my @ZIP2_children = grep {attr($_, 'lemma') =~ /^[0-9][0-9]$/ and get_NameTag_marks($_) eq 'ay' } $node->getAllChildren;
+    if (scalar(@ZIP2_children) == 1) { # it really looks like a ZIP code
+      return 'ax'; # a fake class for the first part of a ZIP code
+    }
+  }
+  if ($lemma =~ /^[0-9][0-9]$/ and $marks =~ /\ba[zt]\b/) { # looks like the second part of a ZIP code
+    my $parent = $node->getParent;
+    my $parent_lemma = attr($parent, 'lemma') // '';
+    my $parent_ne = get_misc_value($parent, 'NE') // '';
+    my @parent_values = $parent_ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g;
+    my $parent_marks = join '~', @parent_values;
+    if ($parent_lemma =~ /^[1-9][0-9][0-9]$/ and $parent_marks=~ /\ba[zt]\b/) { # the parent looks like the first part of a ZIP code
+      return 'ay'; # a fake mark for the second part of a ZIP code
+    }
+  }
+  
+  # IČO
+  if (is_ICO($node)) {
+    return 'ic'; # fake mark for IČO
+  }
+
+  # Street name
+  if (is_street_name($node)) {
+    if ($marks !~ /\bgs\b/) { # looks like a street name but was not recognized by NameTag
+      if (!$marks) { # nothing was recognized by NameTag
+        return 'gs'; # street/square
+      }
+      else {
+        $marks .= '~gs';
+      }
+    }
+  }
+
+  if (!$marks) {
+    return undef;
+  }
+  return $marks;
+}
+
+
+=item get_NE_values
+
+Returns an array of NameTag marks assigned to the given node in attribute misc
+
+=cut
+
+sub get_NE_values {
   my $node = shift;
   my $ne = get_misc_value($node, 'NE') // '';
+  my @values = ();
   if ($ne) {
-    my @values = $ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g; # get an array of the classes
-    my $classes = join '~', @values;
-    # print STDERR "get_NameTag_classes: $ne -> $classes\n";
-
-    my $lemma = attr($node, 'lemma') // '';
-    if ($lemma eq '.') { # '.' in e.g. 'ul.' or 'nám.'
-      return undef;
-    }
-    if ($lemma eq 'ulice') {
-      return undef;
-    }
-    if ($lemma eq 'číslo' or $lemma eq 'č') {
-      return undef;
-    }
-    if ($lemma eq '/') { # '/' in e.g. 'Jiráskova 854/3'
-      return undef;
-    }
-    # ZIP codes
-    if ($lemma =~ /^[1-9][0-9][0-9]$/ and $classes =~ /\ba[zt]\b/) { # looks like the first part of a ZIP code
-      my @ZIP2_children = grep {attr($_, 'lemma') =~ /^[0-9][0-9]$/ and get_NameTag_classes($_) eq 'ay' } $node->getAllChildren;
-      if (scalar(@ZIP2_children) == 1) { # it really looks like a ZIP code
-        return 'ax'; # a fake class for the first part of a ZIP code
-      }
-    }
-    if ($lemma =~ /^[0-9][0-9]$/ and $classes =~ /\ba[zt]\b/) { # looks like the second part of a ZIP code
-      my $parent = $node->getParent;
-      my $parent_lemma = attr($parent, 'lemma') // '';
-      my $parent_ne = get_misc_value($parent, 'NE') // '';
-      my @parent_values = $parent_ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g;
-      my $parent_classes = join '~', @parent_values;
-      if ($parent_lemma =~ /^[1-9][0-9][0-9]$/ and $parent_classes=~ /\ba[zt]\b/) { # the parent looks like the first part of a ZIP code
-        return 'ay'; # a fake class for the second part of a ZIP code
-      }
-    }
-    
-    return $classes;
+    @values = $ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g; # get an array of the classes
   }
-  return undef;
+  return @values;
+}
+
+=item
+
+Returns 1 if the given node appears to be an IČO. Otherwise returns 0.
+Technically, it returns 1 if:
+- either the node represents an 8-digit number
+- or it is a number of length 1-8 and its parent is 'IČO' or 'IČ' (also 'ICO' and 'IC')
+
+=cut
+
+sub is_ICO {
+  my $node = shift;
+  my $form = attr($node, 'form');
+  if ($form =~ /^\d{8}$/) { # eight digits
+    return 1;
+  }
+  if ($form =~ /^\d{1,8}$/) { # max eight digits
+    my $parent = $node->getParent;
+    my $parent_lemma = attr($parent, 'lemma') // '';
+    if ($parent_lemma =~ /^I[ČC](O)?$/) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+
+=item
+
+Returns 1 if the given node appears to be a name of a street. Otherwise returns 0.
+Technically, it returns 1 if:
+- the form starts with a capital letter
+- and it is an adjective or a noun (incl. a proper noun)
+- and the lemma of the parent is 'ulice'
+
+=cut
+
+sub is_street_name {
+  my $node = shift;
+  my $form = attr($node, 'form');
+  my $upostag = attr($node, 'upostag');
+  if ($form =~ /^\p{Upper}/ and $upostag =~ /^(ADJ|NOUN|PROPN)$/) { # starts with a capital letter and is a noun/adjective
+    my $parent = $node->getParent;
+    my $parent_lemma = attr($parent, 'lemma') // '';
+    if ($parent_lemma =~ /^ulice$/) {
+      return 1;
+    }
+  }
+  return 0;
 }
 
 
@@ -819,8 +913,12 @@ sub get_output {
         .replacement-text-if {
             color: $color_replacement_if;
         }
+        .replacement-text-nc {
+            color: $color_replacement_nc;
+        }
         .orig-text {
             color: $color_orig_text;
+            text-decoration: line-through;
         }
         .orig-brackets {
             color: $color_source_brackets;
@@ -903,7 +1001,7 @@ END_OUTPUT_HEAD
       # COLLECT INFO ABOUT THE TOKEN
       my $replacement = attr($node, 'replacement');
       my $form = $replacement // attr($node, 'form');
-      my $classes = get_NameTag_classes($node);
+      my $classes = get_NameTag_marks($node);
 
       my $span_start = '';
       my $span_end = '';
@@ -919,6 +1017,7 @@ END_OUTPUT_HEAD
         $span_class .= ' replacement-text-ps' if ($classes =~/\bps\b/);
         $span_class .= ' replacement-text-me' if ($classes =~/\bme\b/);
         $span_class .= ' replacement-text-if' if ($classes =~/\bif\b/);
+        $span_class .= ' replacement-text-nc' if ($classes =~/\bnc\b/);
         $span_start = "<span class=\"$span_class\">";
         $span_end = '</span>';
       }
