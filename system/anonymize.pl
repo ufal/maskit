@@ -26,6 +26,7 @@ my $color_replacement_text = 'darkred'; # general replacement colour
 
 # NameTag-class specific replacement colours
 my $color_replacement_gu = 'orange'; # town/city
+my $color_replacement_gq = 'orange'; # urban parts
 my $color_replacement_gs = 'magenta'; # street name
 my $color_replacement_ah = 'magenta'; # street number
 my $color_replacement_az = 'magenta'; # zip code
@@ -256,11 +257,19 @@ if ($stdin) { # the input text should be read from STDIN
 #print STDERR $input_content;
 
 
-###################################################################################
-# Let us parse the file using UDPipe REST API
-###################################################################################
+############################################################################################
+# Let us tokenize and segmet the file using UDPipe REST API with PDT-C 1.0 model
+# This model is better for segmentation of texts with many dots in the middle of sentences.
+############################################################################################
 
-my $conll_data = call_udpipe($input_content);
+my $conll_segmented = call_udpipe($input_content, 'segment');
+
+####################################################################################
+# Let us parse the tokenized and segmented text using UDPipe REST API with UD model
+# With this model I get UD trees and attributes.
+####################################################################################
+
+my $conll_data = call_udpipe($conll_segmented, 'parse');
 
 # Store the result to a file (just to have it, not needed for further processing)
 #  open(OUT, '>:encoding(utf8)', "$input_file.conll") or die "Cannot open file '$input_file.conll' for writing: $!";
@@ -555,7 +564,7 @@ sub get_NameTag_marks {
   
   # IČO
   if (is_ICO($node)) {
-    return 'ic'; # fake mark for IČO
+    return 'nc'; # fake mark for IČO
   }
 
   # Street name
@@ -570,11 +579,101 @@ sub get_NameTag_marks {
     }
   }
 
+  # Urban part
+  if (is_urban_part($node)) {
+    if ($marks !~ /\bgq\b/) { # looks like a street name but was not recognized by NameTag
+      if (!$marks) { # nothing was recognized by NameTag
+        return 'gq'; # street/square
+      }
+      else {
+        $marks .= '~gq';
+      }
+    }
+  }
+
   if (!$marks) {
     return undef;
   }
   return $marks;
 }
+
+
+=item 
+
+NameTag offers these values:
+
+NE containers
+
+P - complex person names
+T - complex time expressions
+A - complex address expressions
+C - complex bibliographic expressions
+
+Types of NE
+
+a - Numbers in addresses
+ah - street numbers
+at - phone/fax numbers
+az - zip codes
+
+g - Geographical names
+gc - states
+gh - hydronyms
+gl - nature areas / objects
+gq - urban parts
+gr - territorial names
+gs - streets, squares
+gt - continents
+gu - cities/towns
+g_ - underspecified
+
+i - Institutions
+ia - conferences/contests
+ic - cult./educ./scient. inst.
+if - companies, concerns...
+io - government/political inst.
+i_ - underspecified
+
+m - Media names
+me - email address
+mi - internet links
+mn - periodical
+ms - radio and TV stations
+
+n - Number expressions
+na - age
+nb - vol./page/chap./sec./fig. numbers
+nc - cardinal numbers
+ni - itemizer
+no - ordinal numbers
+ns - sport score
+n_ - underspecified
+
+o - Artifact names
+oa - cultural artifacts (books, movies)
+oe - measure units
+om - currency units
+op - products
+or - directives, norms
+o_ - underspecified
+
+p - Personal names
+pc - inhabitant names
+pd - (academic) titles
+pf - first names
+pm - second names
+pp - relig./myth persons
+ps - surnames
+p_ - underspecified
+
+t - Time expressions
+td - days
+tf - feasts
+th - hours
+tm - months
+ty - years
+
+=cut
 
 
 =item get_NE_values
@@ -621,10 +720,39 @@ sub is_ICO {
 
 =item
 
+Returns 1 if the given node appears to be an urban part (numeric or string). Otherwise returns 0.
+Technically, it returns 1 if:
+- the form is a number or (starts with a capital letter and and it is an adjective or a noun (incl. a proper noun))
+- and NameTag did not assign any g-mark to it
+- the parent has 'gu' mark
+
+=cut
+
+sub is_urban_part {
+  my $node = shift;
+  my $form = attr($node, 'form');
+  my $upostag = attr($node, 'upostag');
+  if ($form =~ /^\d{1,2}$/ or ($form =~ /^\p{Upper}/ and $upostag =~ /^(ADJ|NOUN|PROPN)$/)) { # is a 1 or 2-digit number or starts with a capital letter and is a noun/adjective
+    my @nametag_g_marks = grep {/^g/} get_NE_values($node);
+    if (!scalar(@nametag_g_marks)) { # no g-mark assigned to the node
+      my $parent = $node->getParent;
+      my @nametag_gu_marks = grep {/gu/} get_NE_values($parent);
+      if (@nametag_gu_marks) {
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+
+=item
+
 Returns 1 if the given node appears to be a name of a street. Otherwise returns 0.
 Technically, it returns 1 if:
 - the form starts with a capital letter
 - and it is an adjective or a noun (incl. a proper noun)
+- and NameTag did not assign any g-mark to it (because also town may depend on 'ulice', e.g. in "ulice Kralická v Prostějově"
 - and the lemma of the parent is 'ulice'
 
 =cut
@@ -634,10 +762,13 @@ sub is_street_name {
   my $form = attr($node, 'form');
   my $upostag = attr($node, 'upostag');
   if ($form =~ /^\p{Upper}/ and $upostag =~ /^(ADJ|NOUN|PROPN)$/) { # starts with a capital letter and is a noun/adjective
-    my $parent = $node->getParent;
-    my $parent_lemma = attr($parent, 'lemma') // '';
-    if ($parent_lemma =~ /^ulice$/) {
-      return 1;
+    my @nametag_g_marks = grep {/^g/} get_NE_values($node);
+    if (!scalar(@nametag_g_marks)) { # no g-mark assigned to the node
+      my $parent = $node->getParent;
+      my $parent_lemma = attr($parent, 'lemma') // '';
+      if ($parent_lemma =~ /^ulice$/) {
+        return 1;
+      }
     }
   }
   return 0;
@@ -740,92 +871,6 @@ sub has_child_with_lemma {
 }
 
 
-=item guess_source_type
-
-Guesses and returns the type of the source, i.e. one of these values:
-
-        anonymous
-        anonymous-partial
-        unofficial
-        official-political
-        official-non-political
-
-NameTag offers these values:
-
-NE containers
-
-P - complex person names
-T - complex time expressions
-A - complex address expressions
-C - complex bibliographic expressions
-
-Types of NE
-
-a - Numbers in addresses
-ah - street numbers
-at - phone/fax numbers
-az - zip codes
-
-g - Geographical names
-gc - states
-gh - hydronyms
-gl - nature areas / objects
-gq - urban parts
-gr - territorial names
-gs - streets, squares
-gt - continents
-gu - cities/towns
-g_ - underspecified
-
-i - Institutions
-ia - conferences/contests
-ic - cult./educ./scient. inst.
-if - companies, concerns...
-io - government/political inst.
-i_ - underspecified
-
-m - Media names
-me - email address
-mi - internet links
-mn - periodical
-ms - radio and TV stations
-
-n - Number expressions
-na - age
-nb - vol./page/chap./sec./fig. numbers
-nc - cardinal numbers
-ni - itemizer
-no - ordinal numbers
-ns - sport score
-n_ - underspecified
-
-o - Artifact names
-oa - cultural artifacts (books, movies)
-oe - measure units
-om - currency units
-op - products
-or - directives, norms
-o_ - underspecified
-
-p - Personal names
-pc - inhabitant names
-pd - (academic) titles
-pf - first names
-pm - second names
-pp - relig./myth persons
-ps - surnames
-p_ - underspecified
-
-t - Time expressions
-td - days
-tf - feasts
-th - hours
-tm - months
-ty - years
-
-=cut
-
-
 
 =item get_misc_value
 
@@ -891,6 +936,9 @@ sub get_output {
         }
         .replacement-text-gu {
             color: $color_replacement_gu;
+        }
+        .replacement-text-gq {
+            color: $color_replacement_gq;
         }
         .replacement-text-gs {
             color: $color_replacement_gs;
@@ -1010,6 +1058,7 @@ END_OUTPUT_HEAD
       if ($replacement and $format eq 'html') {
         my $span_class = 'replacement-text';
         $span_class .= ' replacement-text-gu' if ($classes =~/\bgu\b/);
+        $span_class .= ' replacement-text-gq' if ($classes =~/\bgq\b/);
         $span_class .= ' replacement-text-gs' if ($classes =~/\bgs\b/);
         $span_class .= ' replacement-text-ah' if ($classes =~/\bah\b/);
         $span_class .= ' replacement-text-az' if ($classes =~/\ba[xyz]\b/);
@@ -1379,13 +1428,15 @@ sub get_form {
 
 =item call_udpipe
 
-Calling UDPipe REST API; the text to be parsed is passed in the argument
-Returns the parsed output in UD CONLL format
+Calling UDPipe REST API; the input to be processed is passed in the first argument
+The second argument ('segment'/'parse') chooses between the two tasks.
+Segmentation expects plain text as input, the parsing expects segmented conll-u data.
+Returns the output in UD CONLL format
 
 =cut
 
 sub call_udpipe {
-    my $text = shift;
+    my ($text, $task) = @_;
 
 =item
 
@@ -1437,16 +1488,34 @@ sub call_udpipe {
 
 =cut
 
+    my $model;
+    my $input;
+    my $tagger;
+    my $parser;
+
+    if ($task eq 'segment') {
+      $input = 'tokenizer=ranges';
+      if ($input_format eq 'presegmented') {
+        $input .= ';presegmented';
+      }
+      $model = '&model=czech-pdtc1.0';
+      $tagger = '';
+      $parser = '';
+    }
+    elsif ($task eq 'parse') {
+      $input = 'input=conllu';
+      $model = '&model=czech';
+      $tagger = '&tagger';
+      $parser = '&parser';
+    
+    }
 
     # Funkční volání metodou POST, i když podivně kombinuje URL-encoded s POST
 
     # Nastavení URL pro volání REST::API s parametry
-    my $tokenizer = 'tokenizer=ranges';
-    if ($input_format eq 'presegmented') {
-      $tokenizer .= ';presegmented';
-    }
-    my $url = 'http://lindat.mff.cuni.cz/services/udpipe/api/process?' . $tokenizer . '&tagger&parser';
-
+    my $url = "http://lindat.mff.cuni.cz/services/udpipe/api/process?$input$model$tagger$parser";
+    print STDERR "Call UDPipe: URL=$url\n";
+    
     my $ua = LWP::UserAgent->new;
 
     # Define the data to be sent in the POST request

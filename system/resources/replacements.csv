@@ -77,6 +77,9 @@ gu	town	Case=Voc	Praho|Brno|Ostravo|Plzni|Liberci|Olomouci|Pardubice|Zlíne|Hav�
 gu	town	Case=Loc	Praze|Brně|Ostravě|Plzni|Liberci|Olomouci|Pardubicích|Zlíně|Havířově|Kladně
 gu	town	Case=Ins	Prahou|Brnem|Ostravou|Plzní|Libercem|Olomoucí|Pardubicemi|Zlínem|Havířovem|Kladnem
 
+# urban parts - numeric
+gq	urban_part_number	NumForm=Digit	1|2|3|4|5|6|7|8|9|10
+
 # companies, concerns...
 if	company	Case=Nom	ŠKODA|ČEZ|AGROFERT|Hyundai|Unipetrol|Lidl|RWE|Kaufland|Albert|FORTUNa
 if	company	Case=Gen	ŠKODy|ČEZu|AGROFERTu|Hyundaie|Unipetrolu|Lidlu|RWE|Kauflandu|Albertu|FORTUNy
