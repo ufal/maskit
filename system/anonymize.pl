@@ -36,6 +36,7 @@ my $color_replacement_me = 'pink'; # e-mail
 my $color_replacement_if = 'darkcyan'; # company
 my $color_replacement_nk = 'blue'; # IČO
 my $color_replacement_nl = 'blue'; # DIČ
+my $color_replacement_nm = 'brown'; # land registration number (katastrální číslo pozemku)
 
 # info text colours
 my $color_orig_text = 'darkgreen';
@@ -589,11 +590,21 @@ sub get_NameTag_marks {
   if (is_urban_part($node)) {
     if ($marks !~ /\bgq\b/) { # looks like a street name but was not recognized by NameTag
       if (!$marks) { # nothing was recognized by NameTag
-        return 'gq'; # street/square
+        return 'gq'; # urban part
       }
       else {
         $marks .= '~gq';
       }
+    }
+  }
+
+  # Land register number
+  if (is_land_register_number($node)) {
+    if (!$marks) { # nothing was recognized by NameTag
+      return 'nm'; # fake mark for land register number
+    }
+    else {
+      $marks .= '~nm'; # fake mark for land register number
     }
   }
 
@@ -698,6 +709,50 @@ sub get_NE_values {
   return @values;
 }
 
+
+=item
+
+Returns 1 if the given node appears to be a land register number (katastrální číslo pozemku). Otherwise returns 0.
+Technically, it returns 1 if:
+- it is a number
+- and among its predecessors on the part of the path to the root with deprels nmod or nummod (and the final parent of any deprel) is at least one of:
+   - lemma 'pozemek'
+   - or lemma 'číslo' and its parent has form 'p' (p. č.)
+
+=cut
+
+sub is_land_register_number {
+  my $node = shift;
+  my $form = attr($node, 'form') // '';
+  my $deprel = attr($node, 'deprel') // '';
+  if ($form =~ /^\d+$/) { # a number
+    my $parent = $node->getParent;
+    return 0 if !$parent;
+    while ($deprel =~ /^(conj|nmod|nummod)$/) {
+      my $parent_deprel = attr($parent, 'deprel') // '';
+      my $parent_form = attr($parent, 'form') // '';
+      my $parent_lemma = attr($parent, 'lemma') // '';
+      if ($parent_lemma =~ /^pozemek$/) {
+        return 1;
+      }
+      if ($parent_lemma =~ /^číslo$/) {
+        my $grandparent = $parent->getParent;
+        if ($grandparent) {
+          my $grandparent_form = attr($grandparent, 'form') // '';
+          if ($grandparent_form eq 'p') {
+            return 1;
+          }
+        }
+      }
+      $deprel = $parent_deprel;
+      $parent = $parent->getParent;
+    }
+  }
+  return 0;
+}
+
+
+
 =item
 
 Returns 1 if the given node appears to be an IČO. Otherwise returns 0.
@@ -782,10 +837,18 @@ sub is_urban_part {
 
 Returns 1 if the given node appears to be a name of a street. Otherwise returns 0.
 Technically, it returns 1 if:
+either:
 - the form starts with a capital letter
 - and it is an adjective or a noun (incl. a proper noun)
 - and NameTag did not assign any g-mark to it (because also town may depend on 'ulice', e.g. in "ulice Kralická v Prostějově"
 - and the lemma of the parent is 'ulice'
+or:
+- the form starts with a capital letter
+- and it is an adjective or a noun (incl. a proper noun)
+- and NameTag did not assign any g-mark to it (because also town may depend on 'ulice', e.g. in "ulice Kralická v Prostějově"
+- and NameTag assigned 'ps' to it (surname)
+- and there is a number among its sons
+
 
 =cut
 
@@ -800,6 +863,13 @@ sub is_street_name {
       my $parent_lemma = attr($parent, 'lemma') // '';
       if ($parent_lemma =~ /^ulice$/) {
         return 1;
+      }
+      my @number_sons = grep {attr($_, 'form') =~ /^\d+$/} $node->getAllChildren;
+      if (@number_sons) {
+        my @nametag_ps_marks = grep {/ps/} get_NE_values($node);
+        if (@nametag_ps_marks) {
+          return 1;
+        }
       }
     }
   }
@@ -999,6 +1069,9 @@ sub get_output {
         .replacement-text-nl {
             color: $color_replacement_nl;
         }
+        .replacement-text-nm {
+            color: $color_replacement_nm;
+        }
         .orig-text {
             color: $color_orig_text;
             text-decoration: line-through;
@@ -1092,17 +1165,42 @@ END_OUTPUT_HEAD
 
       if ($replacement and $format eq 'html') {
         my $span_class = 'replacement-text';
-        $span_class .= ' replacement-text-gu' if ($classes =~/\bgu\b/);
-        $span_class .= ' replacement-text-gq' if ($classes =~/\bgq\b/);
-        $span_class .= ' replacement-text-gs' if ($classes =~/\bgs\b/);
-        $span_class .= ' replacement-text-ah' if ($classes =~/\bah\b/);
-        $span_class .= ' replacement-text-az' if ($classes =~/\ba[xyz]\b/);
-        $span_class .= ' replacement-text-pf' if ($classes =~/\bpf\b/);
-        $span_class .= ' replacement-text-ps' if ($classes =~/\bps\b/);
-        $span_class .= ' replacement-text-me' if ($classes =~/\bme\b/);
-        $span_class .= ' replacement-text-if' if ($classes =~/\bif\b/);
-        $span_class .= ' replacement-text-nk' if ($classes =~/\bnk\b/);
-        $span_class .= ' replacement-text-nl' if ($classes =~/\bnl\b/);
+        if ($classes =~/\bgu\b/) {
+          $span_class .= ' replacement-text-gu';
+        }
+        elsif ($classes =~/\bgq\b/) {
+          $span_class .= ' replacement-text-gq';
+        }
+        elsif ($classes =~/\bgs\b/) {
+          $span_class .= ' replacement-text-gs';
+        }
+        elsif ($classes =~/\bpf\b/) {
+          $span_class .= ' replacement-text-pf';
+        }
+        elsif ($classes =~/\bps\b/) {
+          $span_class .= ' replacement-text-ps';
+        }
+        elsif ($classes =~/\bah\b/) {
+          $span_class .= ' replacement-text-ah';
+        }
+        elsif ($classes =~/\ba[xyz]\b/) {
+          $span_class .= ' replacement-text-az';
+        }
+        elsif ($classes =~/\bme\b/) {
+          $span_class .= ' replacement-text-me';
+        }
+        elsif ($classes =~/\bif\b/) {
+          $span_class .= ' replacement-text-if';
+        }
+        elsif ($classes =~/\bnk\b/) {
+          $span_class .= ' replacement-text-nk';
+        }
+        elsif ($classes =~/\bnl\b/) {
+          $span_class .= ' replacement-text-nl';
+        }
+        elsif ($classes =~/\bnl\b/) {
+          $span_class .= ' replacement-text-nm';
+        }
         $span_start = "<span class=\"$span_class\">";
         $span_end = '</span>';
       }
