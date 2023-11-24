@@ -17,7 +17,7 @@ binmode STDIN, ':encoding(UTF-8)';
 binmode STDOUT, ':encoding(UTF-8)';
 binmode STDERR, ':encoding(UTF-8)';
 
-my $VER = '0.1 20231121'; # version of the program
+my $VER = '0.1 20231124'; # version of the program
 
 #############################
 # Colours for html
@@ -34,7 +34,8 @@ my $color_replacement_pf = 'red'; # first name
 my $color_replacement_ps = 'red'; # surname
 my $color_replacement_me = 'pink'; # e-mail
 my $color_replacement_if = 'darkcyan'; # company
-my $color_replacement_nc = 'blue'; # IČO
+my $color_replacement_nk = 'blue'; # IČO
+my $color_replacement_nl = 'blue'; # DIČ
 
 # info text colours
 my $color_orig_text = 'darkgreen';
@@ -564,7 +565,12 @@ sub get_NameTag_marks {
   
   # IČO
   if (is_ICO($node)) {
-    return 'nc'; # fake mark for IČO
+    return 'nk'; # fake mark for IČO
+  }
+
+  # DIČ
+  if (is_DIC($node)) {
+    return 'nl'; # fake mark for DIČ
   }
 
   # Street name
@@ -711,6 +717,32 @@ sub is_ICO {
     my $parent = $node->getParent;
     my $parent_lemma = attr($parent, 'lemma') // '';
     if ($parent_lemma =~ /^I[ČC](O)?$/) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+
+=item
+
+Returns 1 if the given node appears to be a DIČ (VAT ID). Otherwise returns 0.
+Technically, it returns 1 if:
+- either the node represents an 8-12 digit number preceded by two capital letters
+- or it is a number of length 2-12 (optionally preceded by preceded by two capital letters) and its parent is 'DIČ' (also 'DIC')
+
+=cut
+
+sub is_DIC {
+  my $node = shift;
+  my $form = attr($node, 'form');
+  if ($form =~ /^[A-Z][A-Z]\d{8,12}$/) { # two capital letters and eight to twelve digits
+    return 1;
+  }
+  if ($form =~ /^([A-Z][A-Z])?\d{2,12}$/) { # optionally two capital letters and two to twelve digits
+    my $parent = $node->getParent;
+    my $parent_lemma = attr($parent, 'lemma') // '';
+    if ($parent_lemma =~ /^DI[ČC]$/) {
       return 1;
     }
   }
@@ -961,8 +993,11 @@ sub get_output {
         .replacement-text-if {
             color: $color_replacement_if;
         }
-        .replacement-text-nc {
-            color: $color_replacement_nc;
+        .replacement-text-nk {
+            color: $color_replacement_nk;
+        }
+        .replacement-text-nl {
+            color: $color_replacement_nl;
         }
         .orig-text {
             color: $color_orig_text;
@@ -1066,7 +1101,8 @@ END_OUTPUT_HEAD
         $span_class .= ' replacement-text-ps' if ($classes =~/\bps\b/);
         $span_class .= ' replacement-text-me' if ($classes =~/\bme\b/);
         $span_class .= ' replacement-text-if' if ($classes =~/\bif\b/);
-        $span_class .= ' replacement-text-nc' if ($classes =~/\bnc\b/);
+        $span_class .= ' replacement-text-nk' if ($classes =~/\bnk\b/);
+        $span_class .= ' replacement-text-nl' if ($classes =~/\bnl\b/);
         $span_start = "<span class=\"$span_class\">";
         $span_end = '</span>';
       }
