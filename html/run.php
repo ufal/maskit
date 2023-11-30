@@ -148,10 +148,8 @@
     </div>
 
     <h3 id="acknowledgements_title" style="margin-top: 30px">Acknowledgements</h3>
-    <p id="acknowledgements_text">The development of SouDeC was financed by the TAČR project TL05000057: Signál a šum v éře Žurnalistiky 5.0 - komparativní perspektiva novinářských žánrů automatizovaných obsahů.</p>
+    <p id="acknowledgements_text">The development of MasKIT was financed by the TAČR SIGMA project TQ01000526: PONK - Asistent přístupné úřední komunikace.</p>
     <p>
-      SouDeC uses external services for its work:
-    </p>
     <ul>
       <li>
         UDPipe (<a href="https://lindat.mff.cuni.cz/services/udpipe/" target="_blank">https://lindat.mff.cuni.cz/services/udpipe/</a>)
