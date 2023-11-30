@@ -65,7 +65,9 @@ my $replacements_file;
 my $output_format;
 my $diff;
 my $add_NE;
+my $output_statistics;
 my $store_format;
+my $store_statistics;
 my $version;
 my $help;
 
