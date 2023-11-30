@@ -69,7 +69,7 @@ any '/api/process' => sub {
 	     # Spuštění skriptu maskit.pl s předáním parametrů a standardního vstupu
         my @cmd = ('/usr/bin/perl', "$script_dir/maskit.pl",
 		   '--stdin',
-		   '--replacements-file', "$script_dir/resources/phrases_reliability.csv",
+		   '--replacements-file', "$script_dir/resources/replacements.csv",
 		   '--input-format', $input_format, 
 		   '--output-format', $output_format,
 		   '--diff',
