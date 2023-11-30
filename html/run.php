@@ -111,7 +111,7 @@
         <div class="col-sm-10">
           <label title="TXT with sources and phrases marked with special characters" class="radio-inline" id="option_output_txt"><input name="option_output" type="radio" value="txt"/>TXT (<a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_output" target="_blank">marked with special characters</a>)</label>
           <label title="HTML with colour-marked sources and phrases" class="radio-inline" id="option_output_html"><input name="option_output" type="radio" value="html" checked/>HTML (<a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_output" target="_blank">colour-marked</a>)</label>
-          <label title="CoNLL-U format with sources and phrases in MISC" class="radio-inline" id="option_output_conllu"><input name="option_output" type="radio" value="conllu"/>CoNLL-U (<a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_output" target="_blank">CoNLL-U+NE+SD</a>)</label>
+          <!--label title="CoNLL-U format with sources and phrases in MISC" class="radio-inline" id="option_output_conllu"><input name="option_output" type="radio" value="conllu"/>CoNLL-U (<a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_output" target="_blank">CoNLL-U+NE+SD</a>)</label-->
         </div>
       </div>
     </div>
