@@ -11,13 +11,16 @@ use List::Util qw(min max);
 use Getopt::Long; # reading arguments
 use POSIX qw(strftime); # naming a file with date and time
 use File::Basename;
+use Time::HiRes qw(gettimeofday tv_interval); # to measure how long the program ran
 
 # STDIN and STDOUT in UTF-8
 binmode STDIN, ':encoding(UTF-8)';
 binmode STDOUT, ':encoding(UTF-8)';
 binmode STDERR, ':encoding(UTF-8)';
 
-my $VER = '0.1 20231124'; # version of the program
+my $start_time = [gettimeofday];
+
+my $VER = '0.1 20231130'; # version of the program
 
 #############################
 # Colours for html
@@ -75,7 +78,9 @@ GetOptions(
     'of|output-format=s'     => \$output_format, # output format, possible values: txt, html, conllu
     'd|diff'                 => \$diff, # display the original expressions next to the anonymized versions
     'ne|named-entities=s'    => \$add_NE, # add named entities as marked by NameTag (1: to the anonymized versions, 2: to all recognized tokens)
+    'os|output-statistics' => \$output_statistics, # adds statistics to the output; if present, output is JSON with two items: data (in output-format) and stats (in HTML)
     'sf|store-format=s'      => \$store_format, # log the result in the given format: txt, html, conllu
+    'ss|store-statistics'    => \$store_statistics, # should statistics be logged as an HTML file?
     'v|version'              => \$version, # print the version of the program and exit
     'h|help'                 => \$help, # print a short help and exit
 );
@@ -101,7 +106,9 @@ options:  -i|--input-file [input text file name]
          -of|--output-format [output format: txt (default), html, conllu]
           -d|--diff (display the original expressions next to the anonymized versions)
          -ne|--named-entities [scope: 1 - add NameTag marks to the anonymized versions, 2 - to all recognized tokens]
+         -os|--output-statistics (add MasKIT statistics to output; if present, output is JSON with two items: data (in output-format) and stats (in HTML))
          -sf|--store-format [format: log the output in the given format: txt, html, conllu]
+         -ss|--store-statistics (log statistics to an HTML file)
           -v|--version (prints the version of the program and ends)
           -h|--help (prints a short help and ends)
 END_TEXT
@@ -173,6 +180,10 @@ if ($add_NE) {
   }
 }
 
+if ($output_statistics) {
+  print STDERR " - add MasKIT statistics to the output; output will be JSON with two items: data (in $output_format) and stats (in HTML)\n";
+}
+
 $store_format = lc($store_format) if $store_format;
 if ($store_format) {
   if ($store_format =~ /^(txt|html|conllu)$/) {
@@ -184,6 +195,9 @@ if ($store_format) {
   }
 }
 
+if ($store_statistics) {
+  print STDERR " - log MasKIT statistics in an HTML file\n";
+}
 
 print STDERR "\n";
 
@@ -414,7 +428,12 @@ my %group2next_index = ();
 my %group_stem2index = (); # a hash keeping info about stems and their replacement index (group . '_' . stem -> replacement index)
                            # this way I know that Nezbeda, Nezbedová, Nezbedovou etc. (group 'surname', stem 'Nezbed') belong together
 
+my $processing_time;
 # print_log_header();
+
+# variables and hashes for statistics
+my $sentences_count = scalar(@trees);
+my $tokens_count = 0;
 
 foreach $root (@trees) {
   print STDERR "\n====================================================================\n";
@@ -422,6 +441,8 @@ foreach $root (@trees) {
   # print_children($root, "\t");
   
   my @nodes = descendants($root);
+  $tokens_count += scalar(@nodes) - 1; # without the root
+
   foreach my $node (@nodes) {
     my $lemma = attr($node, 'lemma') // '';
     my $tag = attr($node, 'xpostag') // '';
@@ -461,9 +482,32 @@ foreach $root (@trees) {
 
 # print_log_tail();
 
-# print the input text with replacements in the selected output format to STDOUT
-my $output = get_output($output_format); 
-print $output;
+# Measure time spent so far
+my $end_time = [gettimeofday];
+$processing_time = tv_interval($start_time, $end_time);
+
+# calculate and format statistics if needed
+my $stats;
+if ($store_statistics or $output_statistics) { # we need to calculate statistics
+  $stats = get_stats();
+}
+
+# print the input text with marked sources in the selected output format to STDOUT
+my $output = get_output($output_format);
+
+if (!$output_statistics) { # statistics should not be a part of output
+  print $output;
+}
+else { # statistics should be a part of output, i.e. output will be JSON with two items: data (in output-format) and stats (in html)
+  my $json_data = {
+       data  => $output,
+       stats => $stats,
+     };
+  # Encode the Perl data structure into a JSON string
+  my $json_string = encode_json($json_data);
+  # Print the JSON string to STDOUT
+  print $json_string;  
+}
 
 if ($store_format) { # log the anonymized text in the given format in a file
   $output = get_output($store_format) if $store_format ne $output_format;
@@ -1279,6 +1323,58 @@ END_OUTPUT_HEAD
   
 } # get_output
 
+
+=item get_stats
+
+Produces an html document with statistics about the anonymization, using info from these variables:
+my $sentences_count;
+my $tokens_count;
+my $processing_time;
+
+=cut
+
+sub get_stats {
+  my $stats = "<html>\n";
+  $stats .= <<END_HEAD;
+<head>
+  <style>
+    h3 {
+      margin-top: 5px;
+    }
+    table {
+      border-collapse: collapse;
+    }
+    table, th, td {
+      border: 1px solid black;
+    }
+    th, td {
+      text-align: left;
+      padding-left: 2mm;
+      padding-right: 2mm;
+    }
+    td:last-child {
+      text-align: right;
+      padding-right: 20px;
+    }
+  </style>
+</head>
+END_HEAD
+
+  $stats .= "<body>\n";
+
+  $stats .= "<h3>MasKIT version $VER</h3>\n";
+  
+  $stats .= "<p>Number of sentences: $sentences_count\n";
+  $stats .= "<br/>Number of tokens: $tokens_count\n";
+  my $rounded_time = sprintf("%.1f", $processing_time);
+  $stats .= "<br/>Processing time: $rounded_time sec.\n";
+  $stats .= "</p>\n";
+
+  $stats .= "</body>\n";
+  $stats .= "</html>\n";
+
+  return $stats;
+}
 
 
 =item get_sentence

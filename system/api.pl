@@ -72,7 +72,8 @@ any '/api/process' => sub {
 		   '--replacements-file', "$script_dir/resources/phrases_reliability.csv",
 		   '--input-format', $input_format, 
 		   '--output-format', $output_format,
-		   '--diff');
+		   '--diff',
+		   '--output-statistics');
         my $stdin_data = $text;
         my $result_json;
         run \@cmd, \$stdin_data, \$result_json;
@@ -82,15 +83,14 @@ any '/api/process' => sub {
 
         # Access the 'data' and 'stats' items in the JSON object
         my $result  = $json_data->{'data'};
-        # my $stats = $json_data->{'stats'};
+        my $stats = $json_data->{'stats'};
 	      my $result_utf8 = decode_utf8($result);
-	      # my $stats_utf8 = decode_utf8($stats);
+	      my $stats_utf8 = decode_utf8($stats);
 	      
         # Vytvoření odpovědi
 	      $c->res->headers->content_type('application/json; charset=UTF-8');
 	      my $data = {message => "This is the process function of the MasKIT service called via $method; input format=$input_format, output format=$output_format.",
-#                                    result => "$result_utf8", stats => "$stats_utf8" };
-                                    result => "$result_utf8" };
+                                    result => "$result_utf8", stats => "$stats_utf8" };
         # print STDERR Dumper($data);
 	      return $c->render(json => $data);
     # }
