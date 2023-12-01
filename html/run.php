@@ -149,7 +149,7 @@
 
     <h3 id="acknowledgements_title" style="margin-top: 30px">Acknowledgements</h3>
     <p id="acknowledgements_text">The development of MasKIT was financed by the TAČR SIGMA project TQ01000526: PONK - Asistent přístupné úřední komunikace.</p>
-    <p>
+    <p>MasKIT uses external services for its work:
     <ul>
       <li>
         UDPipe (<a href="https://lindat.mff.cuni.cz/services/udpipe/" target="_blank">https://lindat.mff.cuni.cz/services/udpipe/</a>)

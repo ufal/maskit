@@ -65,8 +65,8 @@ The <code>processed_output</code> is the output of SouDeC in the requested outpu
 
 <h2 style="margin-top: 20px">Browser Example</h2>
 <table style='width: 100%'>
- <tr><td style='vertical-align: middle'><pre style='margin-bottom: 0; white-space: pre-wrap' class="prettyprint lang-html">http://quest.ms.mff.cuni.cz/soudec/api/detect?input=txt&amp;output=txt&amp;text=Paní Marie Nováková z Myslíkovy ulice č. 25 dostala dopis od firmy ČEZ.</pre></td>
-     <td style='vertical-align: middle; width: 6em'><button style='width: 100%' type="button" class="btn btn-success btn-xs" onclick="window.open('http://quest.ms.mff.cuni.cz/soudec/api/detect?input=txt&amp;output=txt&amp;text=Paní Marie Nováková z Myslíkovy ulice č. 25 dostala dopis od firmy ČEZ.')">try&nbsp;this</button></td></tr>
+ <tr><td style='vertical-align: middle'><pre style='margin-bottom: 0; white-space: pre-wrap' class="prettyprint lang-html">http://quest.ms.mff.cuni.cz/maskit/api/process?input=txt&amp;output=txt&amp;text=Paní Marie Nováková z Myslíkovy ulice č. 25 dostala dopis od firmy Škoda.</pre></td>
+     <td style='vertical-align: middle; width: 6em'><button style='width: 100%' type="button" class="btn btn-success btn-xs" onclick="window.open('http://quest.ms.mff.cuni.cz/maskit/api/process?input=txt&amp;output=txt&amp;text=Paní Marie Nováková z Myslíkovy ulice č. 25 dostala dopis od firmy Škoda.')">try&nbsp;this</button></td></tr>
 </table>
 
 <hr />
