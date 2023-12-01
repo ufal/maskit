@@ -20,7 +20,14 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.1 20231130'; # version of the program
+my $VER = '0.1 20231201'; # version of the program
+
+#my $udpipe_service_url = 'http://lindat.mff.cuni.cz/services/udpipe/api';
+my $udpipe_service_url = 'http://udpipe:11001';
+
+#my $nametag_service_url = 'http://lindat.mff.cuni.cz/services/nametag/api';
+my $nametag_service_url = 'http://udpipe:11002';
+
 
 #############################
 # Colours for html
@@ -977,7 +984,7 @@ sub get_replacement {
     }
     else {
       $replacement = $a_replacements[$replacement_index];
-      if ($replacement eq $form) { # the replacement is accidentally equal to the original form (e.g., Praze vs. Praze); let us skip this replacement index
+      if (lc($replacement) eq lc($form)) { # the replacement is accidentally equal to the original form (e.g., Praze vs. Praze); let us skip this replacement index
         print STDERR "    - the replacement is equal to the original form ($form); let us skip this replacement index ($replacement_index)\n";
         $replacement_index = undef; # run the while cycle one more time to use the next replacement index
       }
@@ -1745,7 +1752,8 @@ sub call_udpipe {
     # Funkční volání metodou POST, i když podivně kombinuje URL-encoded s POST
 
     # Nastavení URL pro volání REST::API s parametry
-    my $url = "http://lindat.mff.cuni.cz/services/udpipe/api/process?$input$model$tagger$parser";
+    #my $url = "http://lindat.mff.cuni.cz/services/udpipe/api/process?$input$model$tagger$parser";
+    my $url = "$udpipe_service_url/process?$input$model$tagger$parser";
     print STDERR "Call UDPipe: URL=$url\n";
     
     my $ua = LWP::UserAgent->new;
@@ -1846,7 +1854,7 @@ sub call_nametag_part {
     # Funkční volání metodou POST, i když podivně kombinuje URL-encoded s POST
 
     # Nastavení URL pro volání REST::API s parametry
-    my $url = 'http://lindat.mff.cuni.cz/services/nametag/api/recognize?input=conllu&output=conllu-ne';
+    my $url = "$nametag_service_url/recognize?input=conllu&output=conllu-ne";
 
     my $ua = LWP::UserAgent->new;
 
