@@ -12,6 +12,7 @@ use Getopt::Long; # reading arguments
 use POSIX qw(strftime); # naming a file with date and time
 use File::Basename;
 use Time::HiRes qw(gettimeofday tv_interval); # to measure how long the program ran
+use Sys::Hostname;
 
 # STDIN and STDOUT in UTF-8
 binmode STDIN, ':encoding(UTF-8)';
@@ -22,11 +23,15 @@ my $start_time = [gettimeofday];
 
 my $VER = '0.1 20231201'; # version of the program
 
-#my $udpipe_service_url = 'http://lindat.mff.cuni.cz/services/udpipe/api';
-my $udpipe_service_url = 'http://udpipe:11001';
+my $udpipe_service_url = 'http://lindat.mff.cuni.cz/services/udpipe/api';
+my $nametag_service_url = 'http://lindat.mff.cuni.cz/services/nametag/api';
+my $hostname = hostname;
+if ($hostname eq 'maskit') { # if running at this server, use versions of udpipe and nametag that do not log texts
+  $udpipe_service_url = 'http://udpipe:11001';
+  $nametag_service_url = 'http://udpipe:11002';
+  $VER .= ' (no text logging)';
+}
 
-#my $nametag_service_url = 'http://lindat.mff.cuni.cz/services/nametag/api';
-my $nametag_service_url = 'http://udpipe:11002';
 
 
 #############################
