@@ -11,7 +11,7 @@
   </tr>
   <tr>
       <th>Homepage</th>
-      <td><a href="http://ufal.mff.cuni.cz/maskit/" target="_blank">http://ufal.mff.cuni.cz/maskit/</a></td>
+      <td><a href="http://ufal.mff.cuni.cz/maskit/" target="_blank">http://ufal.mff.cuni.cz/maskit/</a> (TODO)</td>
   </tr>
   <tr>
       <th>Development repository</th>

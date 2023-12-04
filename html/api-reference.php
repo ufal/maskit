@@ -17,9 +17,7 @@
 
 <h2 id="api_reference">API Reference</h2>
 
-<p>TODO</p>
-
-<p>The SouDeC REST API can be accessed <a href="run.php">directly</a> or via web
+<p>The MasKIT REST API can be accessed <a href="run.php">directly</a> or via web
 programming tools that support standard HTTP request methods and JSON for output
 handling.</p>
 
@@ -30,22 +28,22 @@ handling.</p>
     <th>HTTP Method</th>
 </tr>
 <tr>
-    <td><a href="#detect">detect</a></td>
-    <td><a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec" target="_blank">detect and classify sources</a></td>
+    <td><a href="#process">process</a></td>
+    <td><!--a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit" target="_blank"-->process the text and replace personal information</a></td>
     <td>GET/POST</td>
 </tr>
 </table>
 
 
-<h3>Method <a id='detect'>detect</a></h3>
+<h3>Method <a id='process'>process</a></h3>
 
-<p>Process the given data as described in <a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec" target="_blank">the User's Manual</a>.</p>
+<p>Process the given data as described in <!--a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit" target="_blank"-->the User's Manual</a> (TODO).</p>
 
 <table class='table table-striped table-bordered'>
 <tr><th>Parameter</th><th>Mandatory</th><th>Data type</th><th>Description</th></tr>
 <tr><td>text</td><td>yes</td><td>string</td><td>Input text in <b>UTF-8</b>.</td></tr>
-<tr><td>input</td><td>no</td><td>string</td><td>Input format; possible values: <code>txt</code> (default), <code>presegmented</code>, see <a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_input" target="_blank">input format</a> for details.</td></tr>
-<tr><td>output</td><td>no</td><td>string</td><td>Output format; possible values: <code>txt</code> (default), <code>html</code>, <code>conllu</code>, see <a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_output" target="_blank">output format</a> for details.</td></tr>
+<tr><td>input</td><td>no</td><td>string</td><td>Input format; possible values: <code>txt</code> (default), <code>presegmented</code><!--, see <a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_input" target="_blank">input format</a> for details-->.</td></tr>
+<tr><td>output</td><td>no</td><td>string</td><td>Output format; possible values: <code>txt</code> (default), <code>html</code><!--, <code>conllu</code>, see <a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_output" target="_blank">output format</a> for details-->.</td></tr>
 </table>
 
 <p>
@@ -59,8 +57,8 @@ following structure:</p>
 }
 </pre>
 
-The <code>processed_output</code> is the output of SouDeC in the requested output format
-<br/>and <code>statistics</code> is an HTML overview of the detected sources and their classes.
+The <code>processed_output</code> is the output of MasKIT in the requested output format
+<br/>and <code>statistics</code> is an HTML overview with (so far only) the MasKIT version, the size of the text and the processing time.
 
 
 <h2 style="margin-top: 20px">Browser Example</h2>
@@ -76,12 +74,12 @@ The <code>processed_output</code> is the output of SouDeC in the requested outpu
 The described API can be comfortably used by <code>curl</code>. Several examples follow:
 
 <h3>Passing Input on Command Line (if UTF-8 locale is being used)</h3>
-<pre style="white-space: pre-wrap" class="prettyprint lang-sh">curl --data 'input=txt&amp;output=txt&amp;text=SouDec tvrdí, že tohle je citace.' http://quest.ms.mff.cuni.cz/soudec/api/detect</pre>
+<pre style="white-space: pre-wrap" class="prettyprint lang-sh">curl --data 'input=txt&amp;output=txt&amp;text=Paní Marie Nováková z Myslíkovy ulice č. 25 dostala dopis od firmy Škoda.' http://quest.ms.mff.cuni.cz/maskit/api/process</pre>
 
 <h3>Using Files as Input (files must be in UTF-8 encoding)</h3>
-<pre style="white-space: pre-wrap" class="prettyprint lang-sh">curl --data-urlencode 'input=txt' --data-urlencode 'output=html' --data-urlencode 'text@input_file.txt' http://quest.ms.mff.cuni.cz/soudec/api/detect</pre>
+<pre style="white-space: pre-wrap" class="prettyprint lang-sh">curl --data-urlencode 'input=txt' --data-urlencode 'output=html' --data-urlencode 'text@input_file.txt' http://quest.ms.mff.cuni.cz/maskit/api/process</pre>
 
 <h3>Converting JSON Result to Plain Text</h3>
-<pre style="white-space: pre-wrap" class="prettyprint lang-sh">curl --data 'input=txt&amp;output=txt&amp;text=SouDec tvrdí, že tohle je citace.' http://quest.ms.mff.cuni.cz/soudec/api/detect | PYTHONIOENCODING=utf-8 python -c "import sys,json; sys.stdout.write(json.load(sys.stdin)['result'])"</pre>
+<pre style="white-space: pre-wrap" class="prettyprint lang-sh">curl --data 'input=txt&amp;output=txt&amp;text=Paní Marie Nováková z Myslíkovy ulice č. 25 dostala dopis od firmy Škoda.' http://quest.ms.mff.cuni.cz/maskit/api/process | PYTHONIOENCODING=utf-8 python -c "import sys,json; sys.stdout.write(json.load(sys.stdin)['result'])"</pre>
 
 <?php require('footer.php') ?>
