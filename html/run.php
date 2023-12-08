@@ -199,11 +199,19 @@
 
     <ul class="nav nav-tabs nav-justified nav-tabs-green">
      <li class="active" style="position:relative">
-          <a href="#output_formatted" data-toggle="tab"><span class="fa fa-font"></span> Output</a>
-	  <span style="position:absolute; top: 11px; left: 5px; padding: 0 1em">
-            <input type="checkbox" checked id="origsCheckbox" onchange="displayFormattedOutput()">
-            <input type="checkbox" checked id="highlightingCheckbox" onchange="displayFormattedOutput()">
-          </span>
+	  <a href="#output_formatted" data-toggle="tab"><span class="fa fa-font"></span> Output</a>
+          <div style="position:absolute; top: 6px; left: 10px; padding: 0 0em; border: none;">
+            <div style="display: flex; flex-direction: row;">
+              <div style="display: flex; flex-direction: column; align-items: center; margin-right: 8px;">
+                <input type="checkbox" checked id="origsCheckbox" onchange="displayFormattedOutput();">
+                <span style="font-size: 60%; font-weight: normal; margin-top: 2px;">origs</span>
+              </div>
+              <div style="display: flex; flex-direction: column; align-items: center;">
+                <input type="checkbox" checked id="highlightingCheckbox" onchange="displayFormattedOutput();">
+                <span style="font-size: 60%; font-weight: normal; margin-top: 2px;">colors</span>
+              </div>
+            </div>
+          </div>
           <button type="button" class="btn btn-primary btn-xs" style="position:absolute; top: 11px; right: 10px; padding: 0 2em" onclick="saveOutput();"><span class="fa fa-download"></span> Save</button>
      </li>
      <li style="position:relative"><a href="#output_stats" data-toggle="tab"><span class="fa fa-table"></span> Statistics</a>
