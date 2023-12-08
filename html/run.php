@@ -40,10 +40,7 @@
       try {
 	  if ("result" in json) {
               output_file_content = json.result;
-	      var with_or_without_origs = changeOrigs();
-	      // Přidání <br> ke každému novému řádku v proměnné with_or_without_origs
-              var formatted_content = output_format == "html" ? with_or_without_origs : with_or_without_origs.replace(/\n/g, "\n<br>");
-              jQuery('#output_formatted').html(formatted_content);
+              displayFormattedOutput();
 	  }
 	  if ("stats" in json) {
               output_file_stats = json.stats;
@@ -76,7 +73,8 @@
 
   function saveOutput() {
     if (!output_file_content || !output_format) return;
-    var content_blob = new Blob([output_file_content], {type: output_format == "html" ? "text/html" : "text/plain"});
+    var formatted_output = formatOutput();
+    var content_blob = new Blob([formatted_output], {type: output_format == "html" ? "text/html" : "text/plain"});
     saveAs(content_blob, "citations." + output_format);
   }
 
@@ -86,10 +84,10 @@
     saveAs(stats_blob, "statistics.html");
   }
   
-  function removeOriginals() { // z výsledného textu v daném formátu vyhodí originální údaje
-    if (output_format == 'html') {
+  function removeOriginals(text) { // z výsledného textu v daném formátu vyhodí originální údaje
+    if (output_format === 'html') {
       var tempDiv = document.createElement('div'); // Vytvořte dočasný element (např. div)
-      tempDiv.innerHTML = output_file_content; // nastavte jeho vnitřní HTML kód na daný text
+      tempDiv.innerHTML = text; // nastavte jeho vnitřní HTML kód na daný text
       var spansToRemove = tempDiv.querySelectorAll('.orig-brackets'); // Získejte všechny elementy span s danou třídou.
       spansToRemove.forEach(function(span) { // Projděte všechny získané elementy a odstraňte je
         span.parentNode.removeChild(span);
@@ -97,31 +95,62 @@
       var finalResult = tempDiv.innerHTML; // Získejte konečný HTML kód bez elementů span dané třídy.
       return finalResult;
     }
-    else if (output_format == 'txt') {
+    else if (output_format === 'txt') {
       var regex = /_\[[^\]]*\]/g; // Použití regulárního výrazu pro hledání textu mezi "_[" a "]"
-      var vysledek = output_file_content.replace(regex, ''); // Nahrazení nalezeného textu prázdným řetězcem
+      var vysledek = text.replace(regex, ''); // Nahrazení nalezeného textu prázdným řetězcem
       return vysledek;
     }
-    return output_file_content; // při nerozpoznání formátu vracím původní text
+    return text; // při nerozpoznání formátu vracím nezměněný text
   }
 
 
-  function changeOrigs() { // volána použitím checkboxu origsCheckbox - zapne či vypne zobrazení originálních údajů
+  function removeHighlighting(text) { // z textu vyhodí zvýraznění doplněných údajů
+    if (output_format === 'txt') {
+      return text;
+    }
+    else if (output_format === 'html') { 
+      var tempDiv = document.createElement('div'); // Vytvořte dočasný element (např. div)
+      tempDiv.innerHTML = text; // a nastavte jeho vnitřní HTML kód na příslušný obsah
+      var spansToRemove = tempDiv.querySelectorAll('.replacement-text'); // Získání všech elementů span s danou třídou
+      spansToRemove.forEach(function(span) { // Projděte všechny získané elementy a nahraďte je jejich textovým obsahem
+        var textNode = document.createTextNode(span.textContent);
+        span.parentNode.replaceChild(textNode, span);
+      });
+      var finalText = tempDiv.innerHTML; // Získejte konečný text bez elementů span
+      //console.log(finalText);
+      return finalText;
+    }
+    return text; // při nerozpoznání formátu vracím nezměněný text
+  }
+
+
+  function formatOutput() { 
+    var formatted_output;  
+    // Nejprve checkbox pro zobrazování originálných výrazů
     var checkbox = document.getElementById("origsCheckbox");
     if (checkbox.checked) { // zobrazím původní výsledný text (vč. originálů)
-      //console.log("Checkbox byl zaškrtnut.");
-      var formatted_content = output_format == "html" ? output_file_content : output_file_content.replace(/\n/g, "\n<br>");
-      //console.log(formatted_content);
-      jQuery('#output_formatted').html(formatted_content);
+      formatted_output = output_file_content;
     } else { // vyhodím z výsledného textu originály
-      //console.log("Checkbox byl odškrtnut.");
-      var output_without_origs = removeOriginals();
-      var formatted_content = output_format == "html" ? output_without_origs : output_without_origs.replace(/\n/g, "\n<br>");
-      //console.log(formatted_content);
-      jQuery('#output_formatted').html(formatted_content);
+      formatted_output = removeOriginals(output_file_content);
     }
+    // Nyní checkbox pro barevné zvýraznění nových výrazů
+    checkbox = document.getElementById("highlightingCheckbox");
+    if (checkbox.checked) { // zobrazím původní výsledný text (vč. barevného zvýraznění)
+      // nedělám nic
+    } else { // vyhodím z výsledného textu barevné zvýraznění nových výrazů
+      formatted_output = removeHighlighting(formatted_output);
+    }
+    return formatted_output;
   }
 
+
+  function displayFormattedOutput() { // zobrazí output_file_content podle parametrů nastavených checkboxy
+    var formatted_output = formatOutput();
+    // Přidání <br> ke každému novému řádku v proměnné with_or_without_origs
+    var formatted_content = output_format == "html" ? formatted_output : formatted_output.replace(/\n/g, "\n<br>");
+    //console.log(formatted_content);
+    jQuery('#output_formatted').html(formatted_content);
+  }
 
 --></script>
 
@@ -171,7 +200,10 @@
     <ul class="nav nav-tabs nav-justified nav-tabs-green">
      <li class="active" style="position:relative">
           <a href="#output_formatted" data-toggle="tab"><span class="fa fa-font"></span> Output</a>
-          <input type="checkbox" checked style="position:absolute; top: 11px; left: 10px; padding: 0 2em" id="origsCheckbox" onchange="changeOrigs()">
+	  <span style="position:absolute; top: 11px; left: 5px; padding: 0 1em">
+            <input type="checkbox" checked id="origsCheckbox" onchange="displayFormattedOutput()">
+            <input type="checkbox" checked id="highlightingCheckbox" onchange="displayFormattedOutput()">
+          </span>
           <button type="button" class="btn btn-primary btn-xs" style="position:absolute; top: 11px; right: 10px; padding: 0 2em" onclick="saveOutput();"><span class="fa fa-download"></span> Save</button>
      </li>
      <li style="position:relative"><a href="#output_stats" data-toggle="tab"><span class="fa fa-table"></span> Statistics</a>
