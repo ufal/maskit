@@ -152,6 +152,25 @@
     jQuery('#output_formatted').html(formatted_content);
   }
 
+
+  function handleOutputFormatChange() {
+      //console.log("handleOutputFormatChange - entering the function");
+      var txtRadio = document.getElementById("option_output_txt");
+      var htmlRadio = document.getElementById("option_output_html");
+      var checkbox = document.getElementById("highlightingCheckbox");
+
+      if (txtRadio.checked) {
+        // Zneaktivní checkbox při výběru TXT radio tlačítka
+        //console.log("handleOutputFormatChange - disabling the checkbox");
+        checkbox.disabled = true;
+      } else if (htmlRadio.checked) {
+        // Zaktivní checkbox při výběru HTML radio tlačítka
+        //console.log("handleOutputFormatChange - enabling the checkbox");
+        checkbox.disabled = false;
+      }
+  }
+
+
 --></script>
 
 <div class="panel panel-info">
@@ -169,15 +188,20 @@
         <label class="col-sm-2 control-label">Input:</label>
         <div class="col-sm-10">
           <label title="Tokenize input using a tokenizer" class="radio-inline" id="option_input_plaintext"><input name="option_input" type="radio" value="txt" checked/>Plain text</label>
-          <label title="Tokenize a pre-segmented input using a tokenizer" class="radio-inline" id="option_input_presegmented"><input name="option_input" type="radio" value="presegmented"/>Pre-segmented (<a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_input" target="_blank">sentence per line</a>)</label>
+          <label title="Tokenize a pre-segmented input using a tokenizer" class="radio-inline" id="option_input_presegmented"><input name="option_input" type="radio" value="presegmented"/>Pre-segmented (<a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_input" target="_blank">sentence per line</a>)</label>
         </div>
       </div>
       <div class="form-group row">
         <label class="col-sm-2 control-label">Output:</label>
-        <div class="col-sm-10">
-          <label title="TXT with sources and phrases marked with special characters" class="radio-inline" id="option_output_txt"><input name="option_output" type="radio" value="txt"/>TXT (<a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_output" target="_blank">marked with special characters</a>)</label>
-          <label title="HTML with colour-marked sources and phrases" class="radio-inline" id="option_output_html"><input name="option_output" type="radio" value="html" checked/>HTML (<a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_output" target="_blank">colour-marked</a>)</label>
-          <!--label title="CoNLL-U format with sources and phrases in MISC" class="radio-inline" id="option_output_conllu"><input name="option_output" type="radio" value="conllu"/>CoNLL-U (<a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_output" target="_blank">CoNLL-U+NE+SD</a>)</label-->
+	<div class="col-sm-10">
+          <label title="TXT with original texts marked with special characters" class="radio-inline">
+            <input name="option_output" type="radio" value="txt" id="option_output_txt" onchange="handleOutputFormatChange();"/>TXT
+            (<a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank">marked with special characters</a>)
+          </label>
+          <label title="HTML with colour-marked replacements and original texts" class="radio-inline">
+            <input name="option_output" type="radio" value="html" id="option_output_html" checked onchange="handleOutputFormatChange();"/>HTML
+            (<a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank">colour-marked</a>)
+          </label>
         </div>
       </div>
     </div>
