@@ -232,7 +232,7 @@
               </div>
               <div style="display: flex; flex-direction: column; align-items: center;">
                 <input type="checkbox" checked id="highlightingCheckbox" onchange="displayFormattedOutput();">
-                <span style="font-size: 60%; font-weight: normal; margin-top: 2px;">colors</span>
+                <span style="font-size: 60%; font-weight: normal; margin-top: 2px;">colours</span>
               </div>
             </div>
           </div>
