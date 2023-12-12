@@ -21,7 +21,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.1 20231201'; # version of the program
+my $VER = '0.1 20231212'; # version of the program
 
 my $udpipe_service_url = 'http://lindat.mff.cuni.cz/services/udpipe/api';
 my $nametag_service_url = 'http://lindat.mff.cuni.cz/services/nametag/api';
@@ -74,6 +74,7 @@ my $input_file;
 my $stdin;
 my $input_format;
 my $replacements_file;
+my $randomize;
 my $output_format;
 my $diff;
 my $add_NE;
@@ -89,6 +90,7 @@ GetOptions(
     'si|stdin'               => \$stdin, # should the input be read from STDIN?
     'if|input-format=s'      => \$input_format, # input format, possible values: txt, presegmented
     'rf|replacements-file=s' => \$replacements_file, # the name of the file with replacements
+    'r|randomize'            => \$randomize, # if used, the replacements are selected in random order
     'of|output-format=s'     => \$output_format, # output format, possible values: txt, html, conllu
     'd|diff'                 => \$diff, # display the original expressions next to the anonymized versions
     'ne|named-entities=s'    => \$add_NE, # add named entities as marked by NameTag (1: to the anonymized versions, 2: to all recognized tokens)
@@ -112,11 +114,12 @@ if ($version) {
 if ($help) {
   print "Anonymizer version $VER.\n";
   my $text = <<'END_TEXT';
-Usage: anonymize.pl [options]
+Usage: maskit.pl [options]
 options:  -i|--input-file [input text file name]
          -si|--stdin (input text provided via stdin)
          -if|--input-format [input format: txt (default) or presegmented]
          -rf|--replacements-file [replacements file name]
+          -r|--randomize (if used, the replacements are selected in random order)
          -of|--output-format [output format: txt (default), html, conllu]
           -d|--diff (display the original expressions next to the anonymized versions)
          -ne|--named-entities [scope: 1 - add NameTag marks to the anonymized versions, 2 - to all recognized tokens]
@@ -163,6 +166,13 @@ if (!defined $replacements_file) {
 }
 else {
   print STDERR " - replacements file: $replacements_file\n";
+}
+
+if ($randomize) {
+  print STDERR " - replacements will be selected in random order\n";
+}
+else {
+  print STDERR " - replacements will be selected in order as present in the replacements file\n";
 }
 
 $output_format = lc($output_format) if $output_format;
@@ -228,6 +238,9 @@ print STDERR "Reading replacements from $replacements_file\n";
 open (REPLACEMENTS, '<:encoding(utf8)', $replacements_file)
   or die "Could not open file '$replacements_file' for reading: $!";
 
+my %group2reordering; # reordering of replacements for a given group
+# values of the hash are arrays that contain new indexes for each array index; the length of the array is the same as number of replacements in one replacement line in the given group
+
 my $replacements_count = 0;
 while (<REPLACEMENTS>) {
   chomp(); 
@@ -239,6 +252,11 @@ while (<REPLACEMENTS>) {
     my $group = $2;
     my $constraint = $3;
     my $replacements = $4;
+    if ($randomize) { # randomly mix the replacements (but in the same way for all replacement lines in the same group)
+      #print STDERR "Before randomization: $group\t$replacements\n";
+      $replacements = reorder_replacements($replacements, $group);
+      #print STDERR "After randomization:  $group\t$replacements\n";
+    }
     $class_constraint2replacements{$class . '_' . $constraint} = $replacements;
     $class_constraint2group{$class . '_' . $constraint} = $group;
     print STDERR "Class $class with constraint $constraint, group $group and replacements $replacements\n";
@@ -307,7 +325,7 @@ my $conll_data = call_udpipe($conll_segmented, 'parse');
 #  close(OUT);
 
 ###################################################################################
-# Now let us add info about named entities using NameTag REST API
+# Now let us add info about named entities¨ using NameTag REST API
 ###################################################################################
 
 my $conll_data_ne = call_nametag($conll_data);
@@ -932,6 +950,40 @@ sub is_street_name {
     }
   }
   return 0;
+}
+
+
+=item
+
+# Funkce pro přeházení prvků v $replacements podle uloženého pořadí pro danou skupinu
+my %group2reordering; # reordering of replacements for a given group
+# values of the hash are arrays that contain new indexes for each array index; the length of the array is the same as number of replacements in one replacement line in the given group
+
+=cut
+sub reorder_replacements {
+    my ($replacements, $group) = @_;
+
+    # Pokud pro danou skupinu ještě nejsou uložené přeházené indexy, vytvoř je
+    unless (exists $group2reordering{$group}) {
+        my @indices = shuffle_indices(split(/\|/, $replacements));
+        $group2reordering{$group} = \@indices;
+    }
+
+    # Přeházení prvků podle uložených indexů
+    my @shuffled = map { (split(/\|/, $replacements))[$_] } @{$group2reordering{$group}};
+
+    # Vrácení přeházených prvků jako řetězec oddělený svislítky
+    return join('|', @shuffled);
+}
+
+# Funkce pro náhodné přeházení indexů v poli
+sub shuffle_indices {
+    my @indices = 0..$#_;
+    for my $i (reverse 1..$#_) {
+        my $j = int rand ($i+1);
+        @indices[$i, $j] = @indices[$j, $i];
+    }
+    return @indices;
 }
 
 
