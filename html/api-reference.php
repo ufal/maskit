@@ -29,7 +29,7 @@ handling.</p>
 </tr>
 <tr>
     <td><a href="#process">process</a></td>
-    <td><!--a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit" target="_blank"-->process the text and replace personal information</a></td>
+    <td><a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit" target="_blank">process the text and replace personal information</a></td>
     <td>GET/POST</td>
 </tr>
 </table>
@@ -37,13 +37,13 @@ handling.</p>
 
 <h3>Method <a id='process'>process</a></h3>
 
-<p>Process the given data as described in <!--a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit" target="_blank"-->the User's Manual</a> (TODO).</p>
+<p>Process the given data as described in <a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit" target="_blank">the User's Manual</a>.</p>
 
 <table class='table table-striped table-bordered'>
 <tr><th>Parameter</th><th>Mandatory</th><th>Data type</th><th>Description</th></tr>
 <tr><td>text</td><td>yes</td><td>string</td><td>Input text in <b>UTF-8</b>.</td></tr>
-<tr><td>input</td><td>no</td><td>string</td><td>Input format; possible values: <code>txt</code> (default), <code>presegmented</code><!--, see <a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_input" target="_blank">input format</a> for details-->.</td></tr>
-<tr><td>output</td><td>no</td><td>string</td><td>Output format; possible values: <code>txt</code> (default), <code>html</code><!--, <code>conllu</code>, see <a href="http://ufal.mff.cuni.cz/soudec/users-manual#run_soudec_output" target="_blank">output format</a> for details-->.</td></tr>
+<tr><td>input</td><td>no</td><td>string</td><td>Input format; possible values: <code>txt</code> (default), <code>presegmented</code>, see <a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_input" target="_blank">input format</a> for details.</td></tr>
+<tr><td>output</td><td>no</td><td>string</td><td>Output format; possible values: <code>txt</code> (default), <code>html</code>, <code>conllu</code>, see <a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank">output format</a> for details.</td></tr>
 </table>
 
 <p>
