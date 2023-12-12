@@ -65,8 +65,9 @@ any '/api/process' => sub {
         my $text = $c->param('text'); # input text
         my $input_format = $c->param('input'); # input format
         my $output_format = $c->param('output'); # output format
+	my $randomize = defined $c->param('randomize') ? 1 : 0; # randomization
 
-	     # Spuštění skriptu maskit.pl s předáním parametrů a standardního vstupu
+	# Spuštění skriptu maskit.pl s předáním parametrů a standardního vstupu
         my @cmd = ('/usr/bin/perl', "$script_dir/maskit.pl",
 		   '--stdin',
 		   '--replacements-file', "$script_dir/resources/replacements.csv",
@@ -74,6 +75,9 @@ any '/api/process' => sub {
 		   '--output-format', $output_format,
 		   '--diff',
 		   '--output-statistics');
+	if ($randomize) {
+	  push(@cmd, '--randomize');
+	}
         my $stdin_data = $text;
         my $result_json;
         run \@cmd, \$stdin_data, \$result_json;
