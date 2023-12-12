@@ -13,13 +13,20 @@
     //if (!model) return;
 
     var input_text = jQuery('#input').val();
-    // console.log("doSubmit: Input text: ", input_text);
+    //console.log("doSubmit: Input text: ", input_text);
     var input_format = jQuery('input[name=option_input]:checked').val();
-    // console.log("doSubmit: Input format: ", input_format);
+    //console.log("doSubmit: Input format: ", input_format);
     output_format = jQuery('input[name=option_output]:checked').val();
-    // console.log("doSubmit: Output format: ", output_format);
+    //console.log("doSubmit: Output format: ", output_format);
+    // Zjistíme stav checkboxu s id "option-randomize"
+    var jeZaskrtnuto = $('#option_randomize').prop('checked');
+    //console.log("doSubmit: Randomize: ", jeZaskrtnuto);
     var options = {text: input_text, input: input_format, output: output_format};
     // console.log("doSubmit: options: ", options);
+    // Přidáme parametr "randomize", pokud je checkbox zaškrtnutý
+    if (jeZaskrtnuto) {
+      options.randomize = null; // Nebo prázdný řetězec, záleží na konkrétní implementaci serveru
+    }
 
     var form_data = null;
     if (window.FormData) {
@@ -202,6 +209,12 @@
             <input name="option_output" type="radio" value="html" id="option_output_html" checked onchange="handleOutputFormatChange();"/>HTML
             (<a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank">colour-marked</a>)
           </label>
+        </div>
+      </div>
+      <div class="form-group row">
+        <label class="col-sm-2 control-label">Options:</label>
+        <div class="col-sm-10">
+          <label title="Tokenize input using a tokenizer" class="checkbox-inline" id="option_randomize_label"><input id="option_randomize" name="option_randomize" type="checkbox" checked/>Randomize replacements</label>
         </div>
       </div>
     </div>
