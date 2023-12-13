@@ -22,6 +22,23 @@ binmode STDERR, ':encoding(UTF-8)';
 my $start_time = [gettimeofday];
 
 my $VER = '0.1 20231213'; # version of the program
+my $DESC = <<END_DESC;
+<h3>Handled categories in this version:</h3>
+<ul>
+<li>First names
+<li>Surnames (male and female tied)
+<li>Phone numbers
+<li>E-mails
+<li>Street names (incl. multiword)
+<li>Street numbers
+<li>Town/town part names (incl. multiword)
+<li>ZIP codes
+<li>Company names (so far single word only)
+<li>IČO
+<li>DIČ
+<li>Land register numbers
+</ul>
+END_DESC
 
 my $udpipe_service_url = 'http://lindat.mff.cuni.cz/services/udpipe/api';
 my $nametag_service_url = 'http://lindat.mff.cuni.cz/services/nametag/api';
@@ -1549,6 +1566,8 @@ END_HEAD
   $stats .= "<br/>Processing time: $rounded_time sec.\n";
   $stats .= "</p>\n";
 
+  $stats .= "$DESC\n";
+  
   $stats .= "</body>\n";
   $stats .= "</html>\n";
 
