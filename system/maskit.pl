@@ -23,20 +23,32 @@ my $start_time = [gettimeofday];
 
 my $VER = '0.1 20231213'; # version of the program
 my $DESC = <<END_DESC;
-<h3>Handled categories in this version:</h3>
+<h4>Handled categories in this version:</h4>
 <ul>
-<li>First names
-<li>Surnames (male and female tied)
-<li>Phone numbers
-<li>E-mails
-<li>Street names (incl. multiword)
-<li>Street numbers
-<li>Town/town part names (incl. multiword)
+<li>first names
+<li>surnames (male and female tied)
+<li>phone numbers
+<li>e-mails
+<li>street names (incl. multiword)
+<li>street numbers
+<li>town/town part names (incl. multiword)
 <li>ZIP codes
-<li>Company names (so far single word only)
+<li>company names (so far single word only)
 <li>IČO
 <li>DIČ
-<li>Land register numbers
+<li>land register numbers (registrační čísla pozemků)
+</ul>
+<h4>Categories NOT yet handled:</h4>
+<ul>
+<li>birth registration numbers (rodná čísla)
+<li>dates of birth
+<li>ID card numbers (čísla občanských průkazů)
+<li>driver licence numbers
+<li>passport numbers
+<li>commercial register numbers (čísla v obchodním rejstříku)
+<li>account numbers
+<li>data box numbers (čísla datových schránek)
+<li>Údaje o spisech: čísla jednací, spisové značky, čárové/qr kódy
 </ul>
 END_DESC
 
