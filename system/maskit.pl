@@ -21,7 +21,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.1 20231212'; # version of the program
+my $VER = '0.1 20231213'; # version of the program
 
 my $udpipe_service_url = 'http://lindat.mff.cuni.cz/services/udpipe/api';
 my $nametag_service_url = 'http://lindat.mff.cuni.cz/services/nametag/api';
@@ -476,16 +476,24 @@ foreach $root (@trees) {
   $tokens_count += scalar(@nodes) - 1; # without the root
 
   foreach my $node (@nodes) {
+  
     my $lemma = attr($node, 'lemma') // '';
     my $tag = attr($node, 'xpostag') // '';
     my $form = attr($node, 'form') // '';
     my $feats = attr($node, 'feats') // '';
     my $classes = get_NameTag_marks($node) // '';
 
-    print STDERR "\nProcessing form '$form' with NameTag classes '$classes' and feats '$feats'\n";
-    
+    # Check if the node is a part of a multiword expression (e.g., a multiword street name) hidden by its predecessor (i.e., by the root of the multiword expr.)
+    my $hidden = attr($node, 'hidden') // '';
+    if ($hidden) {
+      print STDERR "Skipping node '$form' hidden by '$hidden'\n";
+      next;
+    }
+
     next if !$classes; # no NameTag class found here
-    
+
+    print STDERR "\nProcessing form '$form' (lemma '$lemma') with NameTag classes '$classes' and feats '$feats'\n";
+
     foreach my $class (split('~', $classes)) {
     
       my $constraints = $class2constraints{$class};
@@ -506,6 +514,10 @@ foreach $root (@trees) {
         my $replacement = get_replacement($node, $class, $constraint);
         print STDERR "    - replacement in class $class: '$form' -> '$replacement'\n";
         set_attr($node, 'replacement', $replacement);
+        
+        # Check if this node is a root of a multiword expression such as street name; in that case hide some descendants
+        check_and_hide_multiword(attr($node, 'ord'), $node, $class);
+        
         last;
       }
     }
@@ -953,6 +965,26 @@ sub is_street_name {
 }
 
 
+=item check_and_hide_multiword
+
+Checks if the node is a root of a multiword expression such as a street name (Nábřeží Kapitána Jaroše); in that case hides some of the descendants.
+Works recursively. The nodes are hidden by setting attribute 'hidden' to id (i.e., ord) of the root of the multiword phrase.
+
+=cut
+
+sub check_and_hide_multiword {
+  my ($id, $node, $class) = @_;
+  if ($class eq 'gs') { # a street name
+    my @street_name_parts = grep {grep {/gs/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat)/} $node->getAllChildren;
+    foreach my $street_name_part (@street_name_parts) {
+      set_attr($street_name_part, 'hidden', $id);
+      print STDERR "Hiding " . attr($street_name_part, 'form') . "\n";
+      check_and_hide_multiword($id, $street_name_part, $class);
+    }
+  }
+}
+
+
 =item
 
 # Funkce pro přeházení prvků v $replacements podle uloženého pořadí pro danou skupinu
@@ -1263,7 +1295,9 @@ END_OUTPUT_HEAD
     my $space_before = '';
 
     foreach my $node (@nodes) {
-    
+
+      next if attr($node, 'hidden'); # do not output hidden nodes (originally parts of multiword expressions such as multiword street names)
+      
       # COLLECT INFO ABOUT THE TOKEN
       my $replacement = attr($node, 'replacement');
       my $form = $replacement // attr($node, 'form');
@@ -1330,7 +1364,7 @@ END_OUTPUT_HEAD
           if ($format eq 'html') {
             $info_span .= '<span class="orig-text">';
           }
-          $info_span .= attr($node, 'form');
+          $info_span .= get_original($node); # usually just attr($node, 'form') but more complex if hidden nodes below
           if ($format eq 'html') {
             $info_span .= '</span>';
           }
@@ -1388,6 +1422,35 @@ END_OUTPUT_HEAD
   return $output;
   
 } # get_output
+
+
+=item get_original
+
+Returns the original form of this node. Usually it is just attr($node, 'form') but sometimes it contains also hidden nodes from the subtree pointing to this node.
+
+=cut
+
+sub get_original {
+  my $node = shift;
+  my $ord = attr($node, 'ord');
+  my @hidden_descendants = grep {attr($_, 'hidden') and attr($_, 'hidden') eq $ord} descendants($node);
+  push(@hidden_descendants, $node);
+  return surface_text(@hidden_descendants);
+}
+
+
+=item surface_text
+
+Given array of nodes, give surface text they represent
+TODO: Implement no-space-after?
+
+=cut
+
+sub surface_text {
+  my @nodes = @_;
+  my @ord_sorted = sort {attr($a, 'ord') <=> attr($b, 'ord')} @nodes;
+  return join(' ', map {attr($_, 'form')} @ord_sorted);
+}
 
 
 =item get_stats
