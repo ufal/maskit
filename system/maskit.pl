@@ -516,7 +516,7 @@ foreach $root (@trees) {
         set_attr($node, 'replacement', $replacement);
         
         # Check if this node is a root of a multiword expression such as street name; in that case hide some descendants
-        check_and_hide_multiword(attr($node, 'ord'), $node, $class);
+        check_and_hide_multiword($node, $class);
         
         last;
       }
@@ -968,23 +968,39 @@ sub is_street_name {
 =item check_and_hide_multiword
 
 Checks if the node is a root of a multiword expression such as a street name (Nábřeží Kapitána Jaroše); in that case hides some of the descendants.
-Works recursively. The nodes are hidden by setting attribute 'hidden' to id (i.e., ord) of the root of the multiword phrase.
+The nodes are hidden by setting attribute 'hidden' to id (i.e., ord) of the root of the multiword phrase.
+If the last hidden node has SpaceAfter=No, it is set at the "root" node
 
 =cut
 
 sub check_and_hide_multiword {
+  my ($node, $class) = @_;
+  my @hidden_nodes = check_and_hide_multiword_recursive(attr($node, 'ord'), $node, $class);
+  if (@hidden_nodes) {
+    my @sorted = sort {attr($a, 'ord') <=> attr($b, 'ord')} @hidden_nodes;
+    my $last = $sorted[-1]; # the last of the hidden nodes
+    my $SpaceAfter = get_misc_value($last, 'SpaceAfter') // '';
+    if ($SpaceAfter eq 'No') { # we need to set this property for $node
+      set_property($node, 'misc', 'SpaceAfter', 'No');
+    }
+  }
+}
+    
+sub check_and_hide_multiword_recursive {
   my ($id, $node, $class) = @_;
+  my @name_parts = ();
+  my @recursive_name_parts = ();
   if ($class eq 'gs') { # a street name
-    my @street_name_parts = grep {grep {/gs/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat)/} $node->getAllChildren;
-    foreach my $street_name_part (@street_name_parts) {
+    @name_parts = grep {grep {/gs/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat)/} $node->getAllChildren;
+    foreach my $street_name_part (@name_parts) {
       set_attr($street_name_part, 'hidden', $id);
       print STDERR "Hiding street name part " . attr($street_name_part, 'form') . "\n";
-      check_and_hide_multiword($id, $street_name_part, $class);
+      @recursive_name_parts = check_and_hide_multiword_recursive($id, $street_name_part, $class);
     }
   }
   elsif ($class eq 'gu' or $class eq 'gq') { # a town / town part
-    my @town_name_parts = grep {grep {/(gu|gq)/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|nummod)/} $node->getAllChildren;
-    foreach my $town_name_part (@town_name_parts) {
+    @name_parts = grep {grep {/(gu|gq)/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|nummod)/} $node->getAllChildren;
+    foreach my $town_name_part (@name_parts) {
       set_attr($town_name_part, 'hidden', $id);
       print STDERR "Hiding town name part " . attr($town_name_part, 'form') . "\n";
       my @puncts = grep {attr($_, 'deprel') eq 'punct'} $town_name_part->getAllChildren; # punctuation such as in "Praha 7 - Holešovice"
@@ -992,9 +1008,30 @@ sub check_and_hide_multiword {
         set_attr($punct, 'hidden', $id);
         print STDERR "Hiding punctuation in town name '" . attr($punct, 'form') . "'\n";
       }
-      check_and_hide_multiword($id, $town_name_part, $class);
+      push(@name_parts, @puncts);
+      @recursive_name_parts = check_and_hide_multiword_recursive($id, $town_name_part, $class);
     }
   }
+  push(@name_parts, @recursive_name_parts);
+  return @name_parts;
+}
+
+=item set_property
+
+In the given attribute at the given node (e.g., 'misc'), it sets the value of the given property.
+
+=cut
+
+sub set_property {
+  my ($node, $attr, $property, $value) = @_;
+  # print STDERR "set_property: '$attr', '$property', '$value'\n";
+  my $orig_value = attr($node, $attr) // '';
+  # print STDERR "set_property: orig_value: '$orig_value'\n";
+  my @values = grep {$_ !~ /^$property\b/} grep {$_ ne ''} grep {defined} split('|', $orig_value);
+  push(@values, "$property=$value");
+  my @sorted = sort @values;
+  my $new_value = join('|', @sorted);
+  set_attr($node, $attr, $new_value);
 }
 
 
