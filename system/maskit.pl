@@ -978,8 +978,21 @@ sub check_and_hide_multiword {
     my @street_name_parts = grep {grep {/gs/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat)/} $node->getAllChildren;
     foreach my $street_name_part (@street_name_parts) {
       set_attr($street_name_part, 'hidden', $id);
-      print STDERR "Hiding " . attr($street_name_part, 'form') . "\n";
+      print STDERR "Hiding street name part " . attr($street_name_part, 'form') . "\n";
       check_and_hide_multiword($id, $street_name_part, $class);
+    }
+  }
+  elsif ($class eq 'gu' or $class eq 'gq') { # a town / town part
+    my @town_name_parts = grep {grep {/(gu|gq)/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|nummod)/} $node->getAllChildren;
+    foreach my $town_name_part (@town_name_parts) {
+      set_attr($town_name_part, 'hidden', $id);
+      print STDERR "Hiding town name part " . attr($town_name_part, 'form') . "\n";
+      my @puncts = grep {attr($_, 'deprel') eq 'punct'} $town_name_part->getAllChildren; # punctuation such as in "Praha 7 - Holešovice"
+      foreach my $punct (@puncts) {
+        set_attr($punct, 'hidden', $id);
+        print STDERR "Hiding punctuation in town name '" . attr($punct, 'form') . "'\n";
+      }
+      check_and_hide_multiword($id, $town_name_part, $class);
     }
   }
 }
