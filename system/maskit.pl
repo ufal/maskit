@@ -1520,6 +1520,7 @@ END_OUTPUT_HEAD
             while ($SpacesBefore =~ /\\s\\s/) {
               $SpacesBefore =~ s/\\s\\s/&nbsp; /;
             }
+            $SpacesBefore =~ s/\\s/ /g;
             while ($SpacesBefore =~ /\\n\\n/) {
               $SpacesBefore =~ s/\\n\\n/\n<p><\/p>\\n/;
             }
@@ -1535,7 +1536,7 @@ END_OUTPUT_HEAD
 
         $output .= "$space_before$span_start$form$span_end$info_span";
 
-        $space_before = ($SpaceAfter eq 'No' or $SpacesAfter) ? '' : ' '; # this way there will not be space after the last token of the sentence
+        $space_before = ($SpaceAfter eq 'No') ? '' : ' '; # this way there will not be space after the last token of the sentence
 
         # $output .= "($SpacesAfter)"; # debug info
         # handle extra spaces and newlines in SpaceAfter
@@ -1545,6 +1546,7 @@ END_OUTPUT_HEAD
             while ($SpacesAfter =~ /\\s\\s/) {
               $SpacesAfter =~ s/\\s\\s/&nbsp; /;
             }
+            $SpacesAfter =~ s/\\s/ /g;
             while ($SpacesAfter =~ /\\n\\n/) {
               $SpacesAfter =~ s/\\n\\n/\n<\/p><p>\\n/;
             }
