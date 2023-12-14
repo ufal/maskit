@@ -21,7 +21,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.1 20231213'; # version of the program
+my $VER = '0.1 20231214'; # version of the program
 my $DESC = <<END_DESC;
 <h4>Handled categories in this version:</h4>
 <ul>
@@ -1020,7 +1020,7 @@ sub check_and_hide_multiword_recursive {
   my @name_parts = ();
   my @recursive_name_parts = ();
   if ($class eq 'gs') { # a street name
-    @name_parts = grep {grep {/gs/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat)/} $node->getAllChildren;
+    @name_parts = grep {grep {/gs/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case)/} $node->getAllChildren;
     foreach my $street_name_part (@name_parts) {
       set_attr($street_name_part, 'hidden', $id);
       print STDERR "Hiding street name part " . attr($street_name_part, 'form') . "\n";
@@ -1028,7 +1028,7 @@ sub check_and_hide_multiword_recursive {
     }
   }
   elsif ($class eq 'gu' or $class eq 'gq') { # a town / town part
-    @name_parts = grep {grep {/(gu|gq)/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|nummod)/} $node->getAllChildren;
+    @name_parts = grep {grep {/(gu|gq)/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/} $node->getAllChildren;
     foreach my $town_name_part (@name_parts) {
       set_attr($town_name_part, 'hidden', $id);
       print STDERR "Hiding town name part " . attr($town_name_part, 'form') . "\n";
