@@ -23,7 +23,7 @@ my $start_time = [gettimeofday];
 
 my $VER = '0.1 20231214'; # version of the program
 my $DESC = <<END_DESC;
-<h4>Handled categories in this version:</h4>
+<h4>Categories handled in this MasKIT version:</h4>
 <ul>
 <li>first names
 <li>surnames (male and female tied)
@@ -360,9 +360,9 @@ my $conll_data = call_udpipe($conll_segmented, 'parse');
 my $conll_data_ne = call_nametag($conll_data);
 
 # Store the result to a file (just to have it, not needed for further processing)
-#  open(OUT, '>:encoding(utf8)', "$input_file.conllne") or die "Cannot open file '$input_file.conllne' for writing: $!";
-#  print OUT $conll_data_ne;
-#  close(OUT);
+open(OUT, '>:encoding(utf8)', "$input_file.conllne") or die "Cannot open file '$input_file.conllne' for writing: $!";
+print OUT $conll_data_ne;
+close(OUT);
 
 
 
@@ -1012,6 +1012,10 @@ sub check_and_hide_multiword {
     if ($SpaceAfter eq 'No') { # we need to set this property for $node
       set_property($node, 'misc', 'SpaceAfter', 'No');
     }
+    my $SpacesAfter = get_misc_value($last, 'SpacesAfter') // '';
+    if ($SpacesAfter) { # we need to set this property for $node
+      set_property($node, 'misc', 'SpacesAfter', $SpacesAfter);
+    }
   }
 }
     
@@ -1020,7 +1024,7 @@ sub check_and_hide_multiword_recursive {
   my @name_parts = ();
   my @recursive_name_parts = ();
   if ($class eq 'gs') { # a street name
-    @name_parts = grep {grep {/gs/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case)/} $node->getAllChildren;
+    @name_parts = grep {grep {/gs/} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case)/} $node->getAllChildren;
     foreach my $street_name_part (@name_parts) {
       set_attr($street_name_part, 'hidden', $id);
       print STDERR "Hiding street name part " . attr($street_name_part, 'form') . "\n";
@@ -1028,7 +1032,7 @@ sub check_and_hide_multiword_recursive {
     }
   }
   elsif ($class eq 'gu' or $class eq 'gq') { # a town / town part
-    @name_parts = grep {grep {/(gu|gq)/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/} $node->getAllChildren;
+    @name_parts = grep {grep {/(gu|gq)/} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/} $node->getAllChildren;
     foreach my $town_name_part (@name_parts) {
       set_attr($town_name_part, 'hidden', $id);
       print STDERR "Hiding town name part " . attr($town_name_part, 'form') . "\n";
@@ -1228,7 +1232,30 @@ sub get_misc_value {
   return undef;
 }  
 
+=item
 
+sub get_misc_value {
+    my ($node, $jmeno_featury) = @_;
+    my $text = attr($node, 'misc') // '';
+    
+    my %featury;
+    
+    # Rozdělení textu na featury
+    my @featury_sekvence = split /\|/, $text;
+    
+    # Parsování každé featury a uložení do hash
+    foreach my $featura (@featury_sekvence) {
+        if ($featura =~ /^(\w+)=(.+)$/) {
+            my ($jmeno, $hodnota) = ($1, $2);
+            $featury{$jmeno} = $hodnota;
+        }
+    }
+    
+    # Vrácení hodnoty featury, pokud existuje
+    return $featury{$jmeno_featury};
+}
+
+=cut
 
 =item get_feat_value
 
@@ -1325,7 +1352,7 @@ END_OUTPUT_HEAD
   my $first_par = 1; # for paragraph separation in txt and html formats (first par in the file should not be separated)
 
   my $first_sent = 1; # for sentence separation in txt and html formats (first sentence in the file should not be separated)
-
+  
 =item
 
   # for conllu:
@@ -1340,7 +1367,9 @@ END_OUTPUT_HEAD
 =cut
 
   foreach $root (@trees) {
-  
+
+#=item 
+
     # PARAGRAPH SEPARATION (txt, html)
     if (attr($root, 'newpar') and $format =~ /^(txt|html)$/) {
       $first_sent = 1;
@@ -1348,11 +1377,14 @@ END_OUTPUT_HEAD
         $first_par = 0;
       }
       else {
-        $output .= $format eq 'html' ? "\n</p>\n" : "\n\n";
+        $output .= "\n</p>\n" if $format eq 'html';
+        # $output .= "\n\n" if $format eq 'txt'; # maybe not needed since using SpacesAfter and SpacesBefore
       }
       $output .= "<p>\n" if $format eq 'html';
     }
-    
+
+#=cut
+
     # SENTENCE HEADER (conllu)
     if ($format eq 'conllu') {
       $output .= attr($root, 'other_comment') // '';
@@ -1365,6 +1397,8 @@ END_OUTPUT_HEAD
       my $text = attr($root, 'text') // '';
       $output .= "# text = $text\n" if $text;
     }
+
+=item maybe not needed since using SpacesAfter
 
     # sentence separation in txt and html formats
     if ($format =~ /^(txt|html)$/) {
@@ -1384,6 +1418,8 @@ END_OUTPUT_HEAD
       }
     }
 
+=cut
+
     # PRINT THE SENTENCE TOKEN BY TOKEN
     my @nodes = sort {attr($a, 'ord') <=> attr($b, 'ord')} descendants($root);
     my $space_before = '';
@@ -1395,7 +1431,7 @@ END_OUTPUT_HEAD
       # COLLECT INFO ABOUT THE TOKEN
       my $replacement = attr($node, 'replacement');
       my $form = $replacement // attr($node, 'form');
-      my $classes = get_NameTag_marks($node);
+      my $classes = get_NameTag_marks($node) // '';
 
       my $span_start = '';
       my $span_end = '';
@@ -1470,13 +1506,58 @@ END_OUTPUT_HEAD
           $info_span .= ']</span>';
         }
       }
-
       
       # PRINT THE TOKEN
       if ($format =~ /^(txt|html)$/) {
         my $SpaceAfter = get_misc_value($node, 'SpaceAfter') // '';
+        my $SpacesAfter = get_misc_value($node, 'SpacesAfter') // ''; # newlines etc. in the original text
+        my $SpacesBefore = get_misc_value($node, 'SpacesBefore') // ''; # newlines etc. in the original text; seems to be sometimes used with presegmented input
+
+        # handle extra spaces and newlines in SpaceBefore (seems to be sometimes used with presegmented input)
+        if ($SpacesBefore =~ /^(\\s|\\r|\\n)+$/) { # SpacesBefore informs that there were newlines or extra spaces in the original text here
+          if ($format eq 'html') {
+            $SpacesBefore =~ s/\\r//g;
+            while ($SpacesBefore =~ /\\s\\s/) {
+              $SpacesBefore =~ s/\\s\\s/&nbsp; /;
+            }
+            while ($SpacesBefore =~ /\\n\\n/) {
+              $SpacesBefore =~ s/\\n\\n/\n<p><\/p>\\n/;
+            }
+            $SpacesBefore =~ s/\\n/\n<br>/g;            
+          }
+          else { # txt
+            $SpacesBefore =~ s/\\r/\r/g;
+            $SpacesBefore =~ s/\\n/\n/g;
+            $SpacesBefore =~ s/\\s/ /g;
+          }
+          $output .= $SpacesBefore;          
+        }
+
         $output .= "$space_before$span_start$form$span_end$info_span";
-        $space_before = $SpaceAfter eq 'No' ? '' : ' '; # this way there will not be space after the last token of the sentence
+
+        $space_before = ($SpaceAfter eq 'No' or $SpacesAfter) ? '' : ' '; # this way there will not be space after the last token of the sentence
+
+        # $output .= "($SpacesAfter)"; # debug info
+        # handle extra spaces and newlines in SpaceAfter
+        if ($SpacesAfter =~ /^(\\s|\\r|\\n)+$/) { # SpacesAfter informs that there were newlines or extra spaces in the original text here
+          if ($format eq 'html') {
+            $SpacesAfter =~ s/\\r//g;
+            while ($SpacesAfter =~ /\\s\\s/) {
+              $SpacesAfter =~ s/\\s\\s/&nbsp; /;
+            }
+            while ($SpacesAfter =~ /\\n\\n/) {
+              $SpacesAfter =~ s/\\n\\n/\n<\/p><p>\\n/;
+            }
+            $SpacesAfter =~ s/\\n/\n<br>/g;            
+          }
+          else { # txt
+            $SpacesAfter =~ s/\\r/\r/g;
+            $SpacesAfter =~ s/\\n/\n/g;
+            $SpacesAfter =~ s/\\s/ /g;
+          }
+          $output .= $SpacesAfter;          
+        }
+        
       }
       elsif ($format eq 'conllu') {
         my $ord = attr($node, 'ord') // '_';
@@ -1506,6 +1587,8 @@ END_OUTPUT_HEAD
     }
     
   }
+  
+  # All sentences processed
 
   if ($format eq 'html') {
     $output .= "\n</p>\n";
