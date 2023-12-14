@@ -1024,7 +1024,9 @@ sub check_and_hide_multiword_recursive {
   my @name_parts = ();
   my @recursive_name_parts = ();
   if ($class eq 'gs') { # a street name
-    @name_parts = grep {grep {/gs/} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case)/} $node->getAllChildren;
+    @name_parts = grep {grep {/gs/} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case)/}
+                  grep {attr($_, 'form') ne 'PSČ'}
+                  $node->getAllChildren;
     foreach my $street_name_part (@name_parts) {
       set_attr($street_name_part, 'hidden', $id);
       print STDERR "Hiding street name part " . attr($street_name_part, 'form') . "\n";
@@ -1032,7 +1034,9 @@ sub check_and_hide_multiword_recursive {
     }
   }
   elsif ($class eq 'gu' or $class eq 'gq') { # a town / town part
-    @name_parts = grep {grep {/(gu|gq)/} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/} $node->getAllChildren;
+    @name_parts = grep {grep {/(gu|gq)/} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/}
+                  grep {attr($_, 'form') ne 'PSČ'}
+                  $node->getAllChildren;
     foreach my $town_name_part (@name_parts) {
       set_attr($town_name_part, 'hidden', $id);
       print STDERR "Hiding town name part " . attr($town_name_part, 'form') . "\n";
@@ -1046,7 +1050,9 @@ sub check_and_hide_multiword_recursive {
     }
   }
   elsif ($class eq 'if') { # companies, concerns...
-    @name_parts = grep {grep {/(if)/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/} $node->getAllChildren;
+    @name_parts = grep {grep {/(if)/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/}
+                  grep {attr($_, 'form') ne 'PSČ'}
+                  $node->getAllChildren;
     foreach my $company_name_part (@name_parts) {
       set_attr($company_name_part, 'hidden', $id);
       print STDERR "Hiding company name part " . attr($company_name_part, 'form') . "\n";
