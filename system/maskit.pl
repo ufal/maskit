@@ -360,9 +360,9 @@ my $conll_data = call_udpipe($conll_segmented, 'parse');
 my $conll_data_ne = call_nametag($conll_data);
 
 # Store the result to a file (just to have it, not needed for further processing)
-open(OUT, '>:encoding(utf8)', "$input_file.conllne") or die "Cannot open file '$input_file.conllne' for writing: $!";
-print OUT $conll_data_ne;
-close(OUT);
+#  open(OUT, '>:encoding(utf8)', "$input_file.conllne") or die "Cannot open file '$input_file.conllne' for writing: $!";
+#  print OUT $conll_data_ne;
+#  close(OUT);
 
 
 
@@ -1009,8 +1009,12 @@ sub check_and_hide_multiword {
     my @sorted = sort {attr($a, 'ord') <=> attr($b, 'ord')} @hidden_nodes;
     my $last = $sorted[-1]; # the last of the hidden nodes
     my $SpaceAfter = get_misc_value($last, 'SpaceAfter') // '';
+    my $SpaceAfterOrig = get_misc_value($node, 'SpaceAfter') // '';
     if ($SpaceAfter eq 'No') { # we need to set this property for $node
       set_property($node, 'misc', 'SpaceAfter', 'No');
+      if ($SpaceAfterOrig ne 'No') { # but we need to leave info that originally there was space here (for displaying orig text)
+        set_property($node, 'misc', 'SpaceAfterOrig', 'Yes');
+      }
     }
     my $SpacesAfter = get_misc_value($last, 'SpacesAfter') // '';
     if ($SpacesAfter) { # we need to set this property for $node
@@ -1081,7 +1085,7 @@ sub set_property {
   # print STDERR "set_property: '$attr', '$property', '$value'\n";
   my $orig_value = attr($node, $attr) // '';
   # print STDERR "set_property: orig_value: '$orig_value'\n";
-  my @values = grep {$_ !~ /^$property\b/} grep {$_ ne ''} grep {defined} split('|', $orig_value);
+  my @values = grep {$_ !~ /^$property\b/} grep {$_ ne ''} grep {defined} split('\|', $orig_value);
   push(@values, "$property=$value");
   my @sorted = sort @values;
   my $new_value = join('|', @sorted);
@@ -1229,7 +1233,7 @@ Returns a value of the given property from the misc attribute. Or undef.
 sub get_misc_value {
   my ($node, $property) = @_;
   my $misc = attr($node, 'misc') // '';
-  # print STDERR "get_misc_value: misc=$misc\n";
+  # print STDERR "get_misc_value: token='" . attr($node, 'form') . "', misc=$misc\n";
   if ($misc =~ /$property=([^|]+)/) {
     my $value = $1;
     # print STDERR "get_misc_value: $property=$value\n";
@@ -1627,7 +1631,6 @@ sub get_original {
 =item surface_text
 
 Given array of nodes, give surface text they represent
-TODO: Implement no-space-after?
 
 =cut
 
@@ -1635,11 +1638,13 @@ sub surface_text {
   my @nodes = @_;
   my @ord_sorted = sort {attr($a, 'ord') <=> attr($b, 'ord')} @nodes;
   my $text = '';
-  my $space = '';
+  my $space_before = '';
   foreach my $token (@ord_sorted) {
-    $text .= $space . attr($token, 'form');
+    # print STDERR "surface_text: processing token " . attr($token, 'form') . "\n";
+    $text .= $space_before . attr($token, 'form');
     my $SpaceAfter = get_misc_value($token, 'SpaceAfter') // '';
-    $space = $SpaceAfter eq 'No' ? '' : ' ';
+    my $SpaceAfterOrig = get_misc_value($token, 'SpaceAfterOrig') // '';
+    $space_before = ($SpaceAfter eq 'No' and $SpaceAfterOrig ne 'Yes') ? '' : ' ';
   }
   return $text;
 }
