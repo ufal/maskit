@@ -33,10 +33,10 @@ my $DESC = <<END_DESC;
 <li>street numbers
 <li>town/town part names (incl. multiword)
 <li>ZIP codes
-<li>company names (so far single word only)
+<li>company names (incl. multiword)
 <li>IČO
 <li>DIČ
-<li>land register numbers (registrační čísla pozemků)
+<li>land registration numbers (registrační čísla pozemků)
 </ul>
 <h4>Categories NOT yet handled:</h4>
 <ul>
@@ -1041,6 +1041,21 @@ sub check_and_hide_multiword_recursive {
       @recursive_name_parts = check_and_hide_multiword_recursive($id, $town_name_part, $class);
     }
   }
+  elsif ($class eq 'if') { # companies, concerns...
+    @name_parts = grep {grep {/(if)/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/} $node->getAllChildren;
+    foreach my $company_name_part (@name_parts) {
+      set_attr($company_name_part, 'hidden', $id);
+      print STDERR "Hiding company name part " . attr($company_name_part, 'form') . "\n";
+      my @puncts = grep {attr($_, 'deprel') eq 'punct'} $company_name_part->getAllChildren; # punctuation
+      foreach my $punct (@puncts) {
+        set_attr($punct, 'hidden', $id);
+        print STDERR "Hiding punctuation in company name '" . attr($punct, 'form') . "'\n";
+      }
+      push(@name_parts, @puncts);
+      @recursive_name_parts = check_and_hide_multiword_recursive($id, $company_name_part, $class);
+    }
+  }
+  
   push(@name_parts, @recursive_name_parts);
   return @name_parts;
 }
@@ -1528,7 +1543,14 @@ TODO: Implement no-space-after?
 sub surface_text {
   my @nodes = @_;
   my @ord_sorted = sort {attr($a, 'ord') <=> attr($b, 'ord')} @nodes;
-  return join(' ', map {attr($_, 'form')} @ord_sorted);
+  my $text = '';
+  my $space = '';
+  foreach my $token (@ord_sorted) {
+    $text .= $space . attr($token, 'form');
+    my $SpaceAfter = get_misc_value($token, 'SpaceAfter') // '';
+    $space = $SpaceAfter eq 'No' ? '' : ' ';
+  }
+  return $text;
 }
 
 
