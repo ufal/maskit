@@ -676,6 +676,18 @@ sub get_NameTag_marks {
     }
   }
 
+  # street names that are wrongly considered also surnames
+  if ($marks =~ /\bgs\b/ and $marks =~ /\bps\b/) {
+    # check if there are street numbers among children
+    my @children = $node->getAllChildren;
+    foreach my $child (@children) {
+      my $child_ne = join('~', get_NE_values($child));
+      if ($child_ne =~ /\bah\b/) { # a street number among children
+        return 'gs'; # mark this only as a street name, not also as a surname
+      }
+    }
+  }
+
   # ZIP codes
   if ($lemma =~ /^[1-9][0-9][0-9]$/ and $marks =~ /\ba[zt]\b/) { # looks like the first part of a ZIP code
     my @ZIP2_children = grep {attr($_, 'lemma') =~ /^[0-9][0-9]$/ and get_NameTag_marks($_) eq 'ay' } $node->getAllChildren;
