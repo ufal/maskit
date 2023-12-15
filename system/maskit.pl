@@ -663,6 +663,19 @@ sub get_NameTag_marks {
   if ($lemma eq '/') { # '/' in e.g. 'Jiráskova 854/3'
     return undef;
   }
+
+  # unrecognized second part of street number (after '/')
+  if ($lemma =~ /^[1-9][0-9]*$/ and $marks !~ /\bah\b/) {
+    my $parent = $node->getParent;
+    my $parent_ne = join('~', get_NE_values($parent));
+    if ($parent_ne =~ /\bah\b/) { # parent was recognized as a street number
+      my @children_slash = grep {attr($_, 'form') eq '/'} $node->getAllChildren;
+      if (@children_slash) { # there is a slash among children
+        return 'ah'; # so this is also a street number
+      }
+    }
+  }
+
   # ZIP codes
   if ($lemma =~ /^[1-9][0-9][0-9]$/ and $marks =~ /\ba[zt]\b/) { # looks like the first part of a ZIP code
     my @ZIP2_children = grep {attr($_, 'lemma') =~ /^[0-9][0-9]$/ and get_NameTag_marks($_) eq 'ay' } $node->getAllChildren;
@@ -673,9 +686,10 @@ sub get_NameTag_marks {
   if ($lemma =~ /^[0-9][0-9]$/ and $marks =~ /\ba[zt]\b/) { # looks like the second part of a ZIP code
     my $parent = $node->getParent;
     my $parent_lemma = attr($parent, 'lemma') // '';
-    my $parent_ne = get_misc_value($parent, 'NE') // '';
-    my @parent_values = $parent_ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g;
-    my $parent_marks = join '~', @parent_values;
+    #my $parent_ne = get_misc_value($parent, 'NE') // '';
+    #my @parent_values = $parent_ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g;
+    #my $parent_marks = join '~', @parent_values;
+    my $parent_marks = join('~', get_NE_values($parent));
     if ($parent_lemma =~ /^[1-9][0-9][0-9]$/ and $parent_marks=~ /\ba[zt]\b/) { # the parent looks like the first part of a ZIP code
       return 'ay'; # a fake mark for the second part of a ZIP code
     }
