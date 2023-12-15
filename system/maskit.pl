@@ -21,7 +21,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.1 20231214'; # version of the program
+my $VER = '0.5 20231215'; # version of the program
 my $DESC = <<END_DESC;
 <h4>Categories handled in this MasKIT version:</h4>
 <ul>
