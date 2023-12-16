@@ -21,7 +21,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.5 20231215'; # version of the program
+my $VER = '0.5 20231216'; # version of the program
 my $DESC = <<END_DESC;
 <h4>Categories handled in this MasKIT version:</h4>
 <ul>
@@ -52,6 +52,8 @@ my $DESC = <<END_DESC;
 </ul>
 END_DESC
 
+my $log_level = 0; # limited (0=full, 1=limited, 2=anonymous)
+
 my $udpipe_service_url = 'http://lindat.mff.cuni.cz/services/udpipe/api';
 my $nametag_service_url = 'http://lindat.mff.cuni.cz/services/nametag/api';
 my $hostname = hostname;
@@ -59,6 +61,7 @@ if ($hostname eq 'maskit') { # if running at this server, use versions of udpipe
   $udpipe_service_url = 'http://udpipe:11001';
   $nametag_service_url = 'http://udpipe:11002';
   $VER .= ' (no text logging)';
+  $log_level = 2; # anonymous
 }
 
 
@@ -166,93 +169,95 @@ END_TEXT
 # Summarize the program arguments to the log (except for --version and --help)
 ###################################################################################
 
-print STDERR "\n####################################################################\n";
+mylog(2, "\n####################################################################\n");
+mylog(2, "MasKIT $VER\n");
 
-print STDERR "Arguments:\n";
+mylog(0, "Arguments:\n");
+ 
 
 if ($stdin) {
-  print STDERR " - input: STDIN\n";
+  mylog(0, " - input: STDIN\n");
 }
 elsif ($input_file) {
-  print STDERR " - input: file $input_file\n";
+  mylog(0, " - input: file $input_file\n");
 }
 
 if (!defined $input_format) {
-  print STDERR " - input format: not specified, set to default $INPUT_FORMAT_DEFAULT\n";
+  mylog(0, " - input format: not specified, set to default $INPUT_FORMAT_DEFAULT\n");
   $input_format = $INPUT_FORMAT_DEFAULT;
 }
 elsif ($input_format !~ /^(txt|presegmented)$/) {
-  print STDERR " - input format: unknown ($input_format), set to default $INPUT_FORMAT_DEFAULT\n";
+  mylog(0, " - input format: unknown ($input_format), set to default $INPUT_FORMAT_DEFAULT\n");
   $input_format = $INPUT_FORMAT_DEFAULT;
 }
 else {
-  print STDERR " - input format: $input_format\n";
+  mylog(0, " - input format: $input_format\n");
 }
 
 if (!defined $replacements_file) {
-  print STDERR " - replacements file: not specified, set to default $REPLACEMENTS_FILE_DEFAULT\n";
+  mylog(0, " - replacements file: not specified, set to default $REPLACEMENTS_FILE_DEFAULT\n");
   $replacements_file = "$script_dir/$REPLACEMENTS_FILE_DEFAULT";
 }
 else {
-  print STDERR " - replacements file: $replacements_file\n";
+  mylog(0, " - replacements file: $replacements_file\n");
 }
 
 if ($randomize) {
-  print STDERR " - replacements will be selected in random order\n";
+  mylog(0, " - replacements will be selected in random order\n");
 }
 else {
-  print STDERR " - replacements will be selected in order as present in the replacements file\n";
+  mylog(0, " - replacements will be selected in order as present in the replacements file\n");
 }
 
 $output_format = lc($output_format) if $output_format;
 if (!defined $output_format) {
-  print STDERR " - output format: not specified, set to default $OUTPUT_FORMAT_DEFAULT\n";
+  mylog(0, " - output format: not specified, set to default $OUTPUT_FORMAT_DEFAULT\n");
   $output_format = $OUTPUT_FORMAT_DEFAULT;
 }
 elsif ($output_format !~ /^(txt|html|conllu)$/) {
-  print STDERR " - output format: unknown ($output_format), set to default $OUTPUT_FORMAT_DEFAULT\n";
+  mylog(0, " - output format: unknown ($output_format), set to default $OUTPUT_FORMAT_DEFAULT\n");
   $output_format = $OUTPUT_FORMAT_DEFAULT;
 }
 else {
-  print STDERR " - output format: $output_format\n";
+  mylog(0, " - output format: $output_format\n");
 }
 
 if ($diff) {
-  print STDERR " - display the original expressions next to the anonymized versions\n";
+  mylog(0, " - display the original expressions next to the anonymized versions\n");
 }
 
 if ($add_NE) {
   if ($add_NE == 1) {
-    print STDERR " - add named entities as marked by NameTag to the anonymized versions\n";
+    mylog(0, " - add named entities as marked by NameTag to the anonymized versions\n");
   }
   elsif ($add_NE == 2) {
-    print STDERR " - add named entities as marked by NameTag to all recognized tokens\n";  
+    mylog(0, " - add named entities as marked by NameTag to all recognized tokens\n");  
   }
   else {
-    print STDERR " - unknown value of -ne/--named-entities parameter ($add_NE); no NameTag marks will be printed\n";    
+    mylog(0, " - unknown value of -ne/--named-entities parameter ($add_NE); no NameTag marks will be printed\n");    
   }
 }
 
 if ($output_statistics) {
-  print STDERR " - add MasKIT statistics to the output; output will be JSON with two items: data (in $output_format) and stats (in HTML)\n";
+  mylog(0, " - add MasKIT statistics to the output; output will be JSON with two items: data (in $output_format) and stats (in HTML)\n");
 }
 
 $store_format = lc($store_format) if $store_format;
 if ($store_format) {
   if ($store_format =~ /^(txt|html|conllu)$/) {
-    print STDERR " - log the output to a file in $store_format\n";
+    mylog(0, " - log the output to a file in $store_format\n");
   }
   else {
-    print STDERR " - unknown format for logging the output ($store_format); the output will not be logged\n";
+    mylog(0, " - unknown format for logging the output ($store_format); the output will not be logged\n");
     $store_format = undef;
   }
 }
 
 if ($store_statistics) {
-  print STDERR " - log MasKIT statistics in an HTML file\n";
+  mylog(0, " - log MasKIT statistics in an HTML file\n");
 }
 
-print STDERR "\n";
+print mylog(0, "\n");
 
 ###################################################################################
 # Let us first read the file with replacements
@@ -262,7 +267,7 @@ my %class_constraint2replacements; # NameTag class + constraint => replacements 
 my %class_constraint2group; # grouping e.g. first names across cases and surnames across cases and genders together
 my %class2constraints; # which constraints does the class require (if any); the individual constraints are separated by '_'; an empty constraint is represented by 'NoConstraint'
 
-print STDERR "Reading replacements from $replacements_file\n";
+mylog(2, "Reading replacements from $replacements_file\n");
 
 open (REPLACEMENTS, '<:encoding(utf8)', $replacements_file)
   or die "Could not open file '$replacements_file' for reading: $!";
@@ -282,25 +287,25 @@ while (<REPLACEMENTS>) {
     my $constraint = $3;
     my $replacements = $4;
     if ($randomize) { # randomly mix the replacements (but in the same way for all replacement lines in the same group)
-      #print STDERR "Before randomization: $group\t$replacements\n";
+      #mylog(0, "Before randomization: $group\t$replacements\n");
       $replacements = reorder_replacements($replacements, $group);
-      #print STDERR "After randomization:  $group\t$replacements\n";
+      #mylog(0, "After randomization:  $group\t$replacements\n");
     }
     $class_constraint2replacements{$class . '_' . $constraint} = $replacements;
     $class_constraint2group{$class . '_' . $constraint} = $group;
-    print STDERR "Class $class with constraint $constraint, group $group and replacements $replacements\n";
+    mylog(0, "Class $class with constraint $constraint, group $group and replacements $replacements\n");
     $replacements_count++;
     if ($class2constraints{$class}) { # if there already was a constraint for this class
-      print STDERR "Note: multiple constraints for class $class.\n";
+      mylog(0, "Note: multiple constraints for class $class.\n");
       $class2constraints{$class} .= "_";
     }
     $class2constraints{$class} .= $constraint;
   }
   else {
-    print STDERR "Unknown format of a line in file $replacements_file:\n$line\n";
+    mylog(2, "Unknown format of a line in file $replacements_file:\n$line\n");
   }
 }
-print STDERR "$replacements_count replacement rules have been read from file $replacements_file:\n";
+mylog(2, "$replacements_count replacement rules have been read from file $replacements_file:\n");
 
 close(REPLACEMENTS);
 
@@ -327,11 +332,13 @@ if ($stdin) { # the input text should be read from STDIN
   close $file_handle;
 
 } else {
-  print STDERR "No input to process! Exiting!\n";
+  mylog(2, "No input to process! Exiting!\n");
   exit -1;
 }
 
-#print STDERR $input_content;
+mylog(2, "input file: $input_file\n");
+
+# mylog(0, $input_content);
 
 
 ############################################################################################
@@ -384,10 +391,10 @@ my $multiword = ''; # store a multiword line to keep with the following token
 # the following cycle for reading UD CONLL is modified from Jan Štěpánek's UD TrEd extension
 foreach my $line (@lines) {
     chomp($line);
-    #print STDERR "Line: $line\n";
+    #mylog(0, "Line: $line\n");
     if ($line =~ /^#/ && !$root) {
         $root = Tree::Simple->new({}, Tree::Simple->ROOT);
-        #print STDERR "Beginning of a new sentence!\n";
+        #mylog(0, "Beginning of a new sentence!\n");
     }
 
     if ($line =~ /^#\s*newdoc/) { # newdoc
@@ -399,7 +406,7 @@ foreach my $line (@lines) {
         set_attr($root, 'id', $sent_id);
     } elsif ($line =~ /^#\s*text\s*=\s*(.*)/) {
         set_attr($root, 'text', $1);
-        #print STDERR "Reading sentence '$1'\n";
+        #mylog(0, "Reading sentence '$1'\n");
     } elsif ($line =~ /^#/) { # other comment, store it as well (all other comments in one attribute other_comment with newlines included)
         my $other_comment_so_far = attr($root, 'other_comment') // '';
         set_attr($root, 'other_comment', $other_comment_so_far . $line . "\n");
@@ -411,7 +418,7 @@ foreach my $line (@lines) {
         $min_start = $min_start = 10000;
         $max_end = 0;
         push(@trees, $root);
-        #print STDERR "End of sentence id='" . attr($root, 'id') . "'.\n\n";
+        #mylog(0, "End of sentence id='" . attr($root, 'id') . "'.\n\n");
         $root = undef;
 
     } else { # a token
@@ -472,7 +479,7 @@ if ($root) {
     set_attr($root, 'start', $min_start);
     set_attr($root, 'end', $max_end);
     push(@trees, $root);
-    #print STDERR "End of sentence id='" . attr($root, 'id') . "'.\n\n";
+    #mylog(0, "End of sentence id='" . attr($root, 'id') . "'.\n\n");
     $root = undef;
     #warn "Emtpy line missing at the end of input\n";
 }
@@ -497,8 +504,8 @@ my $sentences_count = scalar(@trees);
 my $tokens_count = 0;
 
 foreach $root (@trees) {
-  print STDERR "\n====================================================================\n";
-  print STDERR "Sentence id=" . attr($root, 'id') . ": " . attr($root, 'text') . "\n";
+  mylog(1, "\n====================================================================\n");
+  mylog(1, "Sentence id=" . attr($root, 'id') . ": " . attr($root, 'text') . "\n");
   # print_children($root, "\t");
   
   my @nodes = descendants($root);
@@ -515,33 +522,33 @@ foreach $root (@trees) {
     # Check if the node is a part of a multiword expression (e.g., a multiword street name) hidden by its predecessor (i.e., by the root of the multiword expr.)
     my $hidden = attr($node, 'hidden') // '';
     if ($hidden) {
-      print STDERR "Skipping node '$form' hidden by '$hidden'\n";
+      mylog(0, "Skipping node '$form' hidden by '$hidden'\n");
       next;
     }
 
     next if !$classes; # no NameTag class found here
 
-    print STDERR "\nProcessing form '$form' (lemma '$lemma') with NameTag classes '$classes' and feats '$feats'\n";
+    mylog(0, "\nProcessing form '$form' (lemma '$lemma') with NameTag classes '$classes' and feats '$feats'\n");
 
     foreach my $class (split('~', $classes)) {
     
       my $constraints = $class2constraints{$class};
       if (!$constraints) {
-        print STDERR "No constraints for NE class '$class', skipping.\n";
+        mylog(0, "No constraints for NE class '$class', skipping.\n");
         next;
       }
-      print STDERR "Found constraints '$constraints' for NE class '$class'\n";
+      mylog(0, "Found constraints '$constraints' for NE class '$class'\n");
 
       foreach my $constraint (split(/_/, $constraints)) { # split the constraints by separator '_' and work with one constraint at a time
 
         my $matches = check_constraint($node, $form, $constraint); # check if the constraint is met (e.g., Gender=Fem); empty constraint is represented by 'NoConstraint'
         if (!$matches) {
-          print STDERR " - the constraint '$constraint' for form '$form' is not met.\n";
+          mylog(0, " - the constraint '$constraint' for form '$form' is not met.\n");
           next;
         }
-        print STDERR " - the constraint '$constraint' for form '$form' matches.\n";
+        mylog(0, " - the constraint '$constraint' for form '$form' matches.\n");
         my $replacement = get_replacement($node, $class, $constraint);
-        print STDERR "    - replacement in class $class: '$form' -> '$replacement'\n";
+        mylog(0, "    - replacement in class $class: '$form' -> '$replacement'\n");
         set_attr($node, 'replacement', $replacement);
         
         # Check if this node is a root of a multiword expression such as street name; in that case hide some descendants
@@ -594,6 +601,20 @@ if ($store_format) { # log the anonymized text in the given format in a file
 ########################## FINISHED ############################
 ################################################################
 
+=item log
+
+A function to print log (debug) info based on $log_level (0=full, 1=limited, 2=anonymous).
+The message only gets printed (to STDERR) if given $level is greater than or equal to global $log_level.
+
+=cut
+
+sub mylog {
+  my ($level, $msg) = @_;
+  if ($level >= $log_level) {
+    print STDERR "maskit: $msg";
+  }
+}
+
 
 =item check_constraint
 
@@ -612,23 +633,23 @@ sub check_constraint {
   my ($node, $form, $constraint) = @_;
 
   if ($constraint eq 'NoConstraint') { # no constraint, i.e. trivially matched
-    print STDERR " - no constraint, i.e. trivially matched\n";
+    mylog(0, " - no constraint, i.e. trivially matched\n");
     return 1;
   }
 
   my $feats = attr($node, 'feats') // '';
-  print STDERR "check_constraint: checking constraint '$constraint' against feats '$feats'\n";
+  mylog(0, "check_constraint: checking constraint '$constraint' against feats '$feats'\n");
 
   my @a_constraints = split('\|', $constraint); # get the individul features
   foreach my $feature (@a_constraints) {
-    print STDERR " - checking if '$feature' matches\n";
+    mylog(0, " - checking if '$feature' matches\n");
     if ($feats !~ /\b$feature\b/) { # $feature not in $feats
-      print STDERR "   - constraint $feature not matching; returning 0\n";
+      mylog(0, "   - constraint $feature not matching; returning 0\n");
       return 0;
     }
-    print STDERR "   - constraint $feature not matches\n";
+    mylog(0, "   - constraint $feature not matches\n");
   }
-  print STDERR " - OK, all features matched, the constraint matches.\n";
+  mylog(0, " - OK, all features matched, the constraint matches.\n");
   return 1;
 }
 
@@ -648,7 +669,7 @@ sub get_NameTag_marks {
   my $node = shift;
   my @values = get_NE_values($node);
   my $marks = join '~', @values;
-  # print STDERR "get_NameTag_marks: $ne -> $marks\n";
+  # mylog(0, "get_NameTag_marks: $ne -> $marks\n");
 
   my $lemma = attr($node, 'lemma') // '';
   if ($lemma eq '.') { # '.' in e.g. 'ul.' or 'nám.'
@@ -1059,7 +1080,7 @@ sub check_and_hide_multiword_recursive {
                   $node->getAllChildren;
     foreach my $street_name_part (@name_parts) {
       set_attr($street_name_part, 'hidden', $id);
-      print STDERR "Hiding street name part " . attr($street_name_part, 'form') . "\n";
+      mylog(0, "Hiding street name part " . attr($street_name_part, 'form') . "\n");
       @recursive_name_parts = check_and_hide_multiword_recursive($id, $street_name_part, $class);
     }
   }
@@ -1069,11 +1090,11 @@ sub check_and_hide_multiword_recursive {
                   $node->getAllChildren;
     foreach my $town_name_part (@name_parts) {
       set_attr($town_name_part, 'hidden', $id);
-      print STDERR "Hiding town name part " . attr($town_name_part, 'form') . "\n";
+      mylog(0, "Hiding town name part " . attr($town_name_part, 'form') . "\n");
       my @puncts = grep {attr($_, 'deprel') eq 'punct'} $town_name_part->getAllChildren; # punctuation such as in "Praha 7 - Holešovice"
       foreach my $punct (@puncts) {
         set_attr($punct, 'hidden', $id);
-        print STDERR "Hiding punctuation in town name '" . attr($punct, 'form') . "'\n";
+        mylog(0, "Hiding punctuation in town name '" . attr($punct, 'form') . "'\n");
       }
       push(@name_parts, @puncts);
       @recursive_name_parts = check_and_hide_multiword_recursive($id, $town_name_part, $class);
@@ -1085,11 +1106,11 @@ sub check_and_hide_multiword_recursive {
                   $node->getAllChildren;
     foreach my $company_name_part (@name_parts) {
       set_attr($company_name_part, 'hidden', $id);
-      print STDERR "Hiding company name part " . attr($company_name_part, 'form') . "\n";
+      mylog(0, "Hiding company name part " . attr($company_name_part, 'form') . "\n");
       my @puncts = grep {attr($_, 'deprel') eq 'punct'} $company_name_part->getAllChildren; # punctuation
       foreach my $punct (@puncts) {
         set_attr($punct, 'hidden', $id);
-        print STDERR "Hiding punctuation in company name '" . attr($punct, 'form') . "'\n";
+        mylog(0, "Hiding punctuation in company name '" . attr($punct, 'form') . "'\n");
       }
       push(@name_parts, @puncts);
       @recursive_name_parts = check_and_hide_multiword_recursive($id, $company_name_part, $class);
@@ -1108,9 +1129,9 @@ In the given attribute at the given node (e.g., 'misc'), it sets the value of th
 
 sub set_property {
   my ($node, $attr, $property, $value) = @_;
-  # print STDERR "set_property: '$attr', '$property', '$value'\n";
+  # mylog(0, "set_property: '$attr', '$property', '$value'\n");
   my $orig_value = attr($node, $attr) // '';
-  # print STDERR "set_property: orig_value: '$orig_value'\n";
+  # mylog(0, "set_property: orig_value: '$orig_value'\n");
   my @values = grep {$_ !~ /^$property\b/} grep {$_ ne ''} grep {defined} split('\|', $orig_value);
   push(@values, "$property=$value");
   my @sorted = sort @values;
@@ -1173,10 +1194,10 @@ sub get_replacement {
   my $class_constraint = $class . '_' . $constraint;
   my $replacements = $class_constraint2replacements{$class_constraint};
   if (!$replacements) {
-    print STDERR "No replacements for NE class '$class' and constraint '$constraint', skipping.\n";
+    mylog(0, "No replacements for NE class '$class' and constraint '$constraint', skipping.\n");
     next;
   }
-  print STDERR "  - found replacements '$replacements' for class '$class' and constraint '$constraint'\n";
+  mylog(0, "  - found replacements '$replacements' for class '$class' and constraint '$constraint'\n");
   my @a_replacements = split('\|', $replacements);
   my $group = $class_constraint2group{$class_constraint};
   
@@ -1184,11 +1205,11 @@ sub get_replacement {
   # check if this stem in this group has already been replaced
   my $replacement_index = $group_stem2index{$group . '_' . $stem};
   if (defined($replacement_index)) {
-    print STDERR "get_replacement: Found a previously assigned replacement index for group $group and stem $stem: $replacement_index\n";
+    mylog(0, "get_replacement: Found a previously assigned replacement index for group $group and stem $stem: $replacement_index\n");
     my $number_of_replacements = scalar(@a_replacements);
     if ($replacement_index >= $number_of_replacements) { # maximum index exceeded
       $replacement = '[' . $class . '_#' . $replacement_index . ']';
-      print STDERR "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n";
+      mylog(0, "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n");
     }
     else {
       $replacement = $a_replacements[$replacement_index];
@@ -1196,25 +1217,25 @@ sub get_replacement {
   }
   my $new = 0;
   while (!defined($replacement_index)) { # this stem within this group has not yet been seen, so use a new index
-    print STDERR "get_replacement: Unseen group $group and stem $stem, assigning a new replacement index\n";
+    mylog(0, "get_replacement: Unseen group $group and stem $stem, assigning a new replacement index\n");
     $replacement_index = $group2next_index{$group} // 0;
     $group2next_index{$group}++;
     $new = 1;
     my $number_of_replacements = scalar(@a_replacements);
     if ($replacement_index >= $number_of_replacements) { # maximum index exceeded
       $replacement = '[' . $class . '_#' . $replacement_index . ']';
-      print STDERR "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n";
+      mylog(0, "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n");
     }
     else {
       $replacement = $a_replacements[$replacement_index];
       if (lc($replacement) eq lc($form)) { # the replacement is accidentally equal to the original form (e.g., Praze vs. Praze); let us skip this replacement index
-        print STDERR "    - the replacement is equal to the original form ($form); let us skip this replacement index ($replacement_index)\n";
+        mylog(0, "    - the replacement is equal to the original form ($form); let us skip this replacement index ($replacement_index)\n");
         $replacement_index = undef; # run the while cycle one more time to use the next replacement index
       }
     }
   }
   if ($new) { # let us store the index for this stem with this group
-    print STDERR "get_replacement: Storing a newly assigned replacement index ($replacement_index) for group $group and stem $stem\n";
+    mylog(0, "get_replacement: Storing a newly assigned replacement index ($replacement_index) for group $group and stem $stem\n");
     $group_stem2index{$group . '_' . $stem} = $replacement_index;
   }
   return $replacement;
@@ -1259,10 +1280,10 @@ Returns a value of the given property from the misc attribute. Or undef.
 sub get_misc_value {
   my ($node, $property) = @_;
   my $misc = attr($node, 'misc') // '';
-  # print STDERR "get_misc_value: token='" . attr($node, 'form') . "', misc=$misc\n";
+  # mylog(0, "get_misc_value: token='" . attr($node, 'form') . "', misc=$misc\n");
   if ($misc =~ /$property=([^|]+)/) {
     my $value = $1;
-    # print STDERR "get_misc_value: $property=$value\n";
+    # mylog(0, "get_misc_value: $property=$value\n");
     return $value;
   }
   return undef;
@@ -1302,10 +1323,10 @@ Returns a value of the given property from the feats attribute. Or undef.
 sub get_feat_value {
   my ($node, $property) = @_;
   my $feats = attr($node, 'feats') // '';
-  # print STDERR "get_feat_value: feats=$feats\n";
+  # mylog(0, "get_feat_value: feats=$feats\n");
   if ($feats =~ /$property=([^|]+)/) {
     my $value = $1;
-    # print STDERR "get_feat_value: $property=$value\n";
+    # mylog(0, "get_feat_value: $property=$value\n");
     return $value;
   }
   return undef;
@@ -1515,7 +1536,7 @@ END_OUTPUT_HEAD
         $span_end = '</span>';
       }
       
-      if (($diff and $replacement) or ($add_NE and $classes and $replacement) or ($add_NE == 2 and $classes)) { # should the original form and/or NE class be displayed as well?
+      if (($diff and $replacement) or ($add_NE and $classes and $replacement) or ($add_NE and $add_NE == 2 and $classes)) { # should the original form and/or NE class be displayed as well?
         if ($format eq 'txt') {
           $info_span = '_[';
         }
@@ -1666,7 +1687,7 @@ sub surface_text {
   my $text = '';
   my $space_before = '';
   foreach my $token (@ord_sorted) {
-    # print STDERR "surface_text: processing token " . attr($token, 'form') . "\n";
+    # mylog(0, "surface_text: processing token " . attr($token, 'form') . "\n");
     $text .= $space_before . attr($token, 'form');
     my $SpaceAfter = get_misc_value($token, 'SpaceAfter') // '';
     my $SpaceAfterOrig = get_misc_value($token, 'SpaceAfterOrig') // '';
@@ -1753,171 +1774,17 @@ sub get_sentence {
 }
 
 
-=item get_sentence_html
-
-Given two ranges of text indexes (e.g. "124:129"), it returns the sentence to which they belong.
-The function uses the first range that is in the correct format and suppose that the other one is either to be omitted or from the same sentence.
-Both ranges are marked in the sentence; the first one with bold, the other one with underline.
-
-=cut
-
-sub get_sentence_html {
-  my ($range_auto, $range_manual) = @_;
-
-  print STDERR "get_sentence_html: $range_auto, $range_manual\n";
-  
-  # check if there is auto range given
-  my ($start_auto, $end_auto) = (10000, -1);
-  if ($range_auto and $range_auto =~ /^(\d+):(\d+)/) {
-    ($start_auto, $end_auto) = ($1, $2);
-  }
-
-  # check if there is manual range given
-  my ($start_manual, $end_manual) = (10000, -1);
-  if ($range_manual and $range_manual =~ /^(\d+):(\d+)/) {
-    ($start_manual, $end_manual) = ($1, $2);
-  }
-  
-  print STDERR "get_sentence_html:   $start_auto, $end_auto, $start_manual, $end_manual\n";
-
-  if ($end_auto > 0 or $end_manual > 0) { # at least one of the given ranges was properly defined
-
-    my ($start, $end) = $end_auto > 0 ? ($start_auto, $end_auto) : ($start_manual, $end_manual); # for searching for the sentence
-    print STDERR "get_sentence_html:     start = $start, end = $end\n";
-
-    foreach $root (@trees) { # go through all sentences
-      my ($start_sent, $end_sent) = (attr($root, 'start'), attr($root, 'end'));
-      if ($start_sent <= $start and $end_sent >= $end) { # we found the tree
-        my $sentence_text = attr($root, 'text');
-        my $sentence_html = '';
-        for (my $i = 0; $i < length($sentence_text); $i++) {
-          if ($start_sent + $i == $start_auto) {
-              $sentence_html .= "<b>";
-          }
-          if ($start_sent + $i == $start_manual) {
-              $sentence_html .= "<u>";
-          }
-
-          if ($start_sent + $i == $end_manual) {
-              $sentence_html .= "</u>";
-          }
-          if ($start_sent + $i == $end_auto) {
-              $sentence_html .= "</b>";
-          }
-          
-          $sentence_html .= substr($sentence_text, $i, 1);
-          
-        }
-        return $sentence_html;
-      }
-    }
-  }
-  else {
-    return 'N/A';
-  }
-}
-
-
-
-=item get_range
-
-Returns a text index range for an array of nodes
-For non-contiguous ranges, the individual contiguous parts are separated by ';'
-
-=cut
-
-sub get_range {
-  my @nodes = sort {attr($a, 'start') <=> attr($b, 'start')} @_;
-  return '' if !@nodes;
-  # print STDERR "get_range: nodes: " . join(' ', map {attr($_, 'form')} @nodes) . "\n";
-  my $range = '';
-  my $start = shift(@nodes);
-  my $end = $start;
-  my $prev = $start;
-  foreach my $node (@nodes) { # go through the remaining nodes
-    if (attr($prev, 'end') + 1 >= attr($node, 'start')) { # the nodes are consequent
-      $end = $node;
-      $prev = $node;
-    }
-    else { # there is a gap between $prev and $node
-      my $sep = $range ? ';' : '';
-      $range .= $sep . attr($start, 'start') . ':' . attr($end, 'end');
-      $start = $node;
-      $end = $node;
-      $prev = $node;
-    }
-  }
-  # now process the last contiguous part
-  my $sep = $range ? ';' : '';
-  $range .= $sep . attr($start, 'start') . ':' . attr($end, 'end');
-  # print STDERR "get_range: result: $range\n";
-  return $range;
-}
-
-
-=item get_text
-
-Given an array of nodes, it gives their surface text
-
-=cut
-
-sub get_text {
-  my @nodes = @_;
-  my @nodes_ordered = sort {attr($a, 'ord') <=> attr($b, 'ord')} @nodes;
-  my $text = join(' ', map {attr($_, 'form')} @nodes_ordered);
-  return $text;
-}
-
-
-=item get_whole_source
-
-For the given source node, it collects all nodes representing the whole source.
-
-=cut
-
-sub get_whole_source_nodes {
-  my $node = shift;
-  my @source_nodes = get_source_nodes($node);
-  push(@source_nodes, $node);
-  return @source_nodes;
-}
-
-
-=item get_source_nodes
-
-It recursively adds sons whith deprel nmod, amod, flat, case (with exception of 'podle') and acl:relcl (acl:relcl with the whole subtree right away)
-
-=cut
-
-sub get_source_nodes {
-  my $node = shift;
-  
-  if (attr($node, 'deprel') eq 'acl:relcl') { # rel. clause, e.g. "lidé, které Radiožurnál oslovil"
-    return descendants($node);
-  }
-  
-  my @source_sons = grep {attr($_, 'lemma') ne 'podle'}
-                    grep {attr($_, 'deprel') =~ /^(nmod|amod|flat|case|acl:relcl)$/}
-                    $node->getAllChildren;
-  my @whole_source_nodes = @source_sons;
-  foreach my $son (@source_sons) {
-    push(@whole_source_nodes, get_source_nodes($son));
-  }
-  return @whole_source_nodes;
-}
-
-
 # the following function is modified from Jan Štěpánek's UD TrEd extension
 sub _create_structure {
     my ($root) = @_;
     my %node_by_ord = map +(attr($_, 'ord') => $_), $root->getAllChildren;
-    # print STDERR "_create_structure: \%node_by_ord:\n";
+    # mylog(0, "_create_structure: \%node_by_ord:\n");
     foreach my $ord (sort {$a <=> $b} keys(%node_by_ord)) {
-      # print STDERR "_create_structure:   - $ord: " . attr($node_by_ord{$ord}, 'form') . "\n";
+      # mylog(0, "_create_structure:   - $ord: " . attr($node_by_ord{$ord}, 'form') . "\n");
     }
     foreach my $node ($root->getAllChildren) {
         my $head = attr($node, 'head');
-        # print STDERR "_create_structure: head $head\n";
+        # mylog(0, "_create_structure: head $head\n");
         if ($head) { # i.e., head is not 0, meaning this node should not be a child of the technical root
             my $parent = $node->getParent();
             $parent->removeChild($node);
@@ -1934,7 +1801,7 @@ sub print_children {
     foreach my $child (@children) {
         my $ord = attr($child, 'ord') // 'no_ord';
         my $form = attr($child, 'form') // 'no_form';
-        print STDERR "$ord$pre$form\n";
+	mylog(0, "$ord$pre$form\n");
         print_children($child, $pre . "\t");
     }
 }
@@ -1970,43 +1837,6 @@ sub root {
   return $node;
 }
 
-=item
-
-sub get_form {
-  my ($lemma, $tag) = @_;
-
-  # Nastavení URL pro volání REST::API s parametry
-  my $url = 'http://lindat.mff.cuni.cz/services/morphodita/api/generate?data=' . uri_escape_utf8("$lemma\t$tag");
-  print STDERR "get_form: url = $url\n";
-  # Vytvoření instance LWP::UserAgent
-  my $ua = LWP::UserAgent->new;
-
-  # Vytvoření požadavku
-  my $req = HTTP::Request->new('GET', $url);
-  $req->header('Content-Type' => 'application/json');
-
-  # Odeslání požadavku a získání odpovědi
-  my $res = $ua->request($req);
-
-  # Zkontrolování, zda byla odpověď úspěšná
-  if ($res->is_success) {
-      # Získání odpovědi v JSON formátu
-      my $json_response = decode_json($res->content);
-      # Zpracování odpovědi
-      my $result = $json_response->{result};
-      chomp($result);
-      # print STDERR "UDPipe result:\n$result\n";
-      $result =~ s/\t.*$//; # get rid of everything but the form
-      return $result;
-  } else {
-      print STDERR "Chyba: " . $res->status_line . "\n";
-      return '';
-  }
-
-}
-
-=cut
-
 
 ######### PARSING THE TEXT WITH UDPIPE #########
 
@@ -2021,27 +1851,6 @@ Returns the output in UD CONLL format
 
 sub call_udpipe {
     my ($text, $task) = @_;
-
-=item
-
-    # Původní volání metodou GET - neprošly delší texty
-
-    # Nastavení URL pro volání REST::API s parametry
-    my $tokenizer = 'tokenizer=ranges';
-    if ($input_format eq 'presegmented') {
-      $tokenizer .= ';presegmented';
-    }
-    my $url = 'http://lindat.mff.cuni.cz/services/udpipe/api/process?' . $tokenizer . '&tagger&parser&data=' . uri_escape_utf8($text);
-
-    print STDERR "url = $url\n";
-    # Vytvoření instance LWP::UserAgent
-    my $ua = LWP::UserAgent->new;
-
-    # Vytvoření požadavku
-    my $req = HTTP::Request->new('GET', $url);
-    $req->header('Content-Type' => 'application/json');
-
-=cut
 
 =item
 
@@ -2099,7 +1908,7 @@ sub call_udpipe {
     # Nastavení URL pro volání REST::API s parametry
     #my $url = "http://lindat.mff.cuni.cz/services/udpipe/api/process?$input$model$tagger$parser";
     my $url = "$udpipe_service_url/process?$input$model$tagger$parser";
-    print STDERR "Call UDPipe: URL=$url\n";
+    mylog(2, "Call UDPipe: URL=$url\n");
     
     my $ua = LWP::UserAgent->new;
 
@@ -2123,9 +1932,9 @@ sub call_udpipe {
         # print STDERR "UDPipe result:\n$result\n";
         return $result;
     } else {
-        print STDERR "call_udpipe: URL: $url\n";
-        print STDERR "call_udpipe: Text: $text\n";
-        print STDERR "call_udpipe: Chyba: " . $res->status_line . "\n";
+        mylog(2, "call_udpipe: URL: $url\n");
+        mylog(1, "call_udpipe: Text: $text\n");
+        mylog(2, "call_udpipe: Chyba: " . $res->status_line . "\n");
         return '';
     }
 }
@@ -2151,10 +1960,10 @@ sub call_nametag {
     my $conll_part = '';
     my $sent_count = 0;
     foreach my $line (split /\n/, $conll) {
-      #print STDERR "Processing line $line\n";
+      #mylog(0, "Processing line $line\n");
       $conll_part .= $line . "\n";
       if ($line =~ /^\s*$/) { # empty line means end of sentence
-        #print STDERR "Found an empty line.\n";
+        #mylog(0, "Found an empty line.\n");
         $sent_count++;
         if ($sent_count eq $max_sentences) {
           $result .= call_nametag_part($conll_part);
@@ -2180,26 +1989,11 @@ If an error occurs, the function just returns the input conll text unchanged.
 sub call_nametag_part {
     my $conll = shift;
 
-=item
-    
-    # Stará verze metodou GET
-    
-    # Nastavení URL pro volání REST::API s parametry
-    my $url = 'http://lindat.mff.cuni.cz/services/nametag/api/recognize?input=conllu&output=conllu-ne&data=' . uri_escape_utf8($conll);
-
-    # Vytvoření instance LWP::UserAgent
-    my $ua = LWP::UserAgent->new;
-
-    # Vytvoření požadavku
-    my $req = HTTP::Request->new('GET', $url);
-    $req->header('Content-Type' => 'application/json');
-
-=cut
-
     # Funkční volání metodou POST, i když podivně kombinuje URL-encoded s POST
 
     # Nastavení URL pro volání REST::API s parametry
     my $url = "$nametag_service_url/recognize?input=conllu&output=conllu-ne";
+    mylog(2, "Call NameTag: URL=$url\n");
 
     my $ua = LWP::UserAgent->new;
 
@@ -2220,11 +2014,12 @@ sub call_nametag_part {
         my $json_response = decode_json($res->content);
         # Zpracování odpovědi
         my $result = $json_response->{result};
-        # print STDERR "NameTag result:\n$result\n";
+        # mylog(0, "NameTag result:\n$result\n");
         return $result;
     } else {
-        print STDERR "call_nametag_part: URL: $url\n";
-        print STDERR "call_nametag_part: Chyba: " . $res->status_line . "\n";
+        mylog(2, "call_nametag_part: URL: $url\n");
+        mylog(2, "call_nametag_part: Chyba: " . $res->status_line . "\n");
         return $conll; 
     }
 }
+
