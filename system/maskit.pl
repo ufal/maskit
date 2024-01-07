@@ -21,7 +21,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.5 20231216'; # version of the program
+my $VER = '0.5 20240107'; # version of the program
 my $DESC = <<END_DESC;
 <h4>Categories handled in this MasKIT version:</h4>
 <ul>
@@ -37,10 +37,10 @@ my $DESC = <<END_DESC;
 <li>IČO
 <li>DIČ
 <li>land registration numbers (registrační čísla pozemků)
+<li>birth registration numbers (rodná čísla)
 </ul>
 <h4>Categories NOT yet handled:</h4>
 <ul>
-<li>birth registration numbers (rodná čísla)
 <li>dates of birth
 <li>ID card numbers (čísla občanských průkazů)
 <li>driver licence numbers
@@ -661,7 +661,11 @@ Fake marks are assigned for cases not recognized by NameTag:
 ax - the first part (three digits) of a ZIP code
 ay - the second part (two digits) of a ZIP code
 
-nc - IČO
+nk - IČO
+nl - DIČ
+
+nx - the first part (six digits) of a birth registration number
+ny - the second part (four or three digits) of a birth registration number
 
 =cut
 
@@ -672,6 +676,16 @@ sub get_NameTag_marks {
   # mylog(0, "get_NameTag_marks: $ne -> $marks\n");
 
   my $lemma = attr($node, 'lemma') // '';
+  
+  # Birth registration number
+  if (is_birth_number_part1($node)) {
+    return 'nx'; # fake mark for firt part of birth registration number
+  }
+  if (is_birth_number_part2($node)) {
+    return 'ny'; # fake mark for second part of birth registration number
+  }
+
+
   if ($lemma eq '.') { # '.' in e.g. 'ul.' or 'nám.'
     return undef;
   }
@@ -685,7 +699,7 @@ sub get_NameTag_marks {
     return undef;
   }
 
-  # unrecognized second part of street number (after '/')
+  # unrecognized second part of a street number (after '/')
   if ($lemma =~ /^[1-9][0-9]*$/ and $marks !~ /\bah\b/) {
     my $parent = $node->getParent;
     my $parent_ne = join('~', get_NE_values($parent));
@@ -911,6 +925,69 @@ sub is_land_register_number {
       $deprel = $parent_deprel;
       $parent = $parent->getParent;
     }
+  }
+  return 0;
+}
+
+
+=item
+
+Returns 1 if the given node appears to be the first part of a birth registration number. Otherwise returns 0.
+Technically, it returns 1 if:
+- the node is a 6-digit number and:
+   - the first two-digit number is less than 54 and its only son is a 3 digit number
+   - or the first two-digit number is greater than 53 and its only son is a 4 digit number and together the 10-digit number is divisible by 11
+   - or the first two-digit number is greater than 53 and its only son is a 4 digit number, the last digit is 0 and the 9-digit number (without the last digit) divided by 11 gives 10
+- and the grandson is '/'
+
+=cut
+
+sub is_birth_number_part1 {
+  my $node = shift;
+  my $lemma = attr($node, 'lemma');
+
+  if ($lemma =~ /^([0-9][0-9])[0-9][0-9][0-9][0-9]$/) { # might be the first part of a birth registration number
+    #mylog(0, "is_birth_number_part1: six-digit number\n");
+    my $year = $1;
+    my @sons = $node->getAllChildren;
+    my @RC2_children = grep {attr($_, 'lemma') =~ /^[0-9][0-9][0-9][0-9]?$/} @sons;
+    if (scalar(@sons) == 1 and scalar(@RC2_children) == 1) { # it has the only one and correct son
+      #mylog(0, "is_birth_number_part1: single three- or four-digit number\n");
+      my $son = $RC2_children[0];
+      my @grandsons = $son->getAllChildren;
+      if (scalar(@grandsons) == 1 and attr($grandsons[0], 'lemma') eq '/') { # the only grandson is '/'
+        my $RC2 = attr($son, 'lemma');
+        #mylog(0, "is_birth_number_part1: grandson '/', year: '$year', son: '$RC2', length: " . length($RC2) . "\n");
+        if ($year < 54 and length($RC2) == 3) {
+          #mylog(0, "is_birth_number_part1: year<54 and three-digit number\n");
+          return 1; # a birth registration number up to the year 1953
+        }
+        if ($year > 53 and length($RC2) == 4) { # might be a birth reg. number since 1954
+          #mylog(0, "is_birth_number_part1: year>53 and four-digit number\n");
+          my $whole = $lemma . $RC2;
+          my $remainder = $whole % 11;
+          if ($remainder == 0) { # divisible by 11
+            return 1;
+          }
+          if (substr($whole, -1) eq '0') { # last digit is 0
+            my $whole_without_last = substr($whole, 0, -1);
+            $remainder = $whole_without_last % 11;
+            if ($remainder == 10) { # the first 9-digit part after division by 11 gives 10
+              return 1;
+            }
+          }
+        }
+      }
+    }
+  }
+  return 0;
+}
+
+sub is_birth_number_part2 {
+  my $node = shift;
+  my $parent = $node->getParent;
+  if (is_birth_number_part1($parent)) {
+    return 1;
   }
   return 0;
 }

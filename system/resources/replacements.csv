@@ -21,6 +21,10 @@ az	zip_code	NoConstraint	123 45|234 56|345 67|456 78|567 89|678 91|789 12|891 23
 ax	zip_code_1	NoConstraint	135|246|357|468|579|680|791|802|913|153
 ay	zip_code_2	NoConstraint	79|80|91|02|13|24|35|46|57|68
 
+# fake classes for the first and second part of a birth registration number
+nx	birth_number_1	NoConstraint	112233|223344|334455|445566|556677|667788|778899|889900|990011|113322
+ny	birth_number_2	NoConstraint	1234|2345|3456|4567|5678|6789|7890|8901|9012|1324
+
 # first names (male)
 pf	first_name_male	Gender=Masc|Case=Nom	Jiří|Jan|Petr|Josef|Pavel|Martin|Tomáš|Jaroslav|Miroslav|Zdeněk
 pf	first_name_male	Gender=Masc|Case=Gen	Jiřího|Jana|Petra|Josefa|Pavla|Martina|Tomáše|Jaroslava|Miroslava|Zdeňka
