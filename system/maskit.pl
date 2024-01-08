@@ -677,6 +677,12 @@ sub get_NameTag_marks {
 
   my $lemma = attr($node, 'lemma') // '';
   
+  my $parent = $node->getParent;
+  my $parent_lemma = '';
+  if ($parent) {
+    $parent_lemma = attr($parent, 'lemma') // '';
+  }
+  
   # Birth registration number
   if (is_birth_number_part1($node)) {
     return 'nx'; # fake mark for firt part of birth registration number
@@ -685,6 +691,15 @@ sub get_NameTag_marks {
     return 'ny'; # fake mark for second part of birth registration number
   }
 
+  # hide 'hlavní' if dependent on 'město' and do not assign any tag to this 'město' 
+  if ($lemma eq 'město') {
+    my @sons_hlavni = grep {attr($_, 'lemma') eq 'hlavní'} $node->getAllChildren;
+    if (@sons_hlavni) {
+      my $hlavni = $sons_hlavni[0];
+      set_attr($hlavni, 'hidden', attr($node, 'ord')); # hiding 'hlavní' in 'hlavní město'
+      return undef; # in this case 'město' should not be a part of the town name (unlike e.g. Nové město nad Metují)
+    }
+  }
 
   if ($lemma eq '.') { # '.' in e.g. 'ul.' or 'nám.'
     return undef;
@@ -701,7 +716,6 @@ sub get_NameTag_marks {
 
   # unrecognized second part of a street number (after '/')
   if ($lemma =~ /^[1-9][0-9]*$/ and $marks !~ /\bah\b/) {
-    my $parent = $node->getParent;
     my $parent_ne = join('~', get_NE_values($parent));
     if ($parent_ne =~ /\bah\b/) { # parent was recognized as a street number
       my @children_slash = grep {attr($_, 'form') eq '/'} $node->getAllChildren;
