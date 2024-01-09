@@ -21,7 +21,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.5 20240108'; # version of the program
+my $VER = '0.5 20240109'; # version of the program
 my $DESC = <<END_DESC;
 <h4>Categories handled in this MasKIT version:</h4>
 <ul>
@@ -1328,6 +1328,9 @@ sub get_replacement {
   if ($new) { # let us store the index for this stem with this group
     mylog(0, "get_replacement: Storing a newly assigned replacement index ($replacement_index) for group $group and stem $stem\n");
     $group_stem2index{$group . '_' . $stem} = $replacement_index;
+  }
+  if ($form =~ /^\p{Lu}+$/) { # the original form is capitalized
+    $replacement = uc($replacement); # capitalize also the replacement
   }
   return $replacement;
 }
