@@ -21,7 +21,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.5 20240109'; # version of the program
+my $VER = '0.5 20240115'; # version of the program
 my $DESC = <<END_DESC;
 <h4>Categories handled in this MasKIT version:</h4>
 <ul>
@@ -38,10 +38,10 @@ my $DESC = <<END_DESC;
 <li>DIČ
 <li>land registration numbers (registrační čísla pozemků)
 <li>birth registration numbers (rodná čísla)
+<li>dates of birth/death
 </ul>
 <h4>Categories NOT yet handled:</h4>
 <ul>
-<li>dates of birth
 <li>ID card numbers (čísla občanských průkazů)
 <li>driver licence numbers
 <li>passport numbers
@@ -84,6 +84,9 @@ my $color_replacement_if = 'darkcyan'; # company
 my $color_replacement_nk = 'blue'; # IČO
 my $color_replacement_nl = 'blue'; # DIČ
 my $color_replacement_nm = 'brown'; # land registration number (katastrální číslo pozemku)
+my $color_replacement_nxy = 'darkred'; # birth registration number
+my $color_replacement_tabc = 'darkred'; # date of birth
+my $color_replacement_tijk = 'darkred'; # date of death
 
 # info text colours
 my $color_orig_text = 'darkgreen';
@@ -664,8 +667,18 @@ ay - the second part (two digits) of a ZIP code
 nk - IČO
 nl - DIČ
 
+nm - land register number
+
 nx - the first part (six digits) of a birth registration number
 ny - the second part (four or three digits) of a birth registration number
+
+ta - day of birth
+tb - month of birth
+tc - year of birth
+
+ti - day of death
+tj - month of death
+tk - year of death
 
 =cut
 
@@ -755,7 +768,27 @@ sub get_NameTag_marks {
       return 'ay'; # a fake mark for the second part of a ZIP code
     }
   }
-  
+
+  # date of birth/death
+  if (is_day_of_birth($node)) {
+    return 'ta';
+  }
+  if (is_month_of_birth($node)) {
+    return 'tb';
+  }
+  if (is_year_of_birth($node)) {
+    return 'tc';
+  }
+  if (is_day_of_death($node)) {
+    return 'ti';
+  }
+  if (is_month_of_death($node)) {
+    return 'tj';
+  }
+  if (is_year_of_death($node)) {
+    return 'tk';
+  }
+
   # IČO
   if (is_ICO($node)) {
     return 'nk'; # fake mark for IČO
@@ -899,6 +932,173 @@ sub get_NE_values {
     @values = $ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g; # get an array of the classes
   }
   return @values;
+}
+
+
+=item
+
+Returns 1 if it is a day in the expression of someone's date of birth
+
+=cut
+
+sub is_day_of_birth {
+  my ($node) = @_;
+  my $form = attr($node, 'form');
+  if ($form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/) {
+    my $parent = $node->getParent;
+    return 0 if !$parent;
+    my $parent_form = attr($parent, 'form');
+    if ($parent_form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12)$/) {
+      my @year_brothers = grep {attr($_, 'form') =~ /^[12][09][0-9][0-9]$/} $parent->getAllChildren;
+      if (scalar(@year_brothers) == 1) {
+        my $grandparent = $parent->getParent;
+        return 0 if !$grandparent;
+        my $grandparent_form = attr($grandparent, 'form') // '';
+        my $grandparent_lemma = attr($grandparent, 'lemma') // '';
+        if ($grandparent_lemma =~ /^(narozený)$/ or $grandparent_form =~ /^(nar|n)$/) {
+          return 1;
+        }
+      }
+    }
+  }
+  return 0;
+}
+
+=item
+
+Returns 1 if it is a month in the expression of someone's date of birth
+
+=cut
+
+sub is_month_of_birth {
+  my ($node) = @_;
+  my $form = attr($node, 'form');
+  if ($form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12)$/) {
+    my $parent = $node->getParent;
+    return 0 if !$parent;
+    my $parent_form = attr($parent, 'form');
+    my $parent_lemma = attr($parent, 'lemma') // '';
+    if ($parent_lemma =~ /^(narozený)$/ or $parent_form =~ /^(nar|n)$/) {
+      my @year_sons = grep {attr($_, 'form') =~ /^[12][09][0-9][0-9]$/} $node->getAllChildren;
+      my @day_sons = grep {attr($_, 'form') =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/} $node->getAllChildren;
+      if (scalar(@year_sons) == 1 and scalar(@day_sons)) {
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+=item
+
+Returns 1 if it is a year in the expression of someone's date of birth
+
+=cut
+
+sub is_year_of_birth {
+  my ($node) = @_;
+  my $form = attr($node, 'form');
+  if ($form =~ /^[12][09][0-9][0-9]$/) {
+    my $parent = $node->getParent;
+    return 0 if !$parent;
+    my $parent_form = attr($parent, 'form');
+    if ($parent_form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12)$/) {
+      my @day_brothers = grep {attr($_, 'form') =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/} $parent->getAllChildren;
+      if (scalar(@day_brothers) == 1) {
+        my $grandparent = $parent->getParent;
+        return 0 if !$grandparent;
+        my $grandparent_form = attr($grandparent, 'form') // '';
+        my $grandparent_lemma = attr($grandparent, 'lemma') // '';
+        if ($grandparent_lemma =~ /^(narozený)$/ or $grandparent_form =~ /^(nar|n)$/) {
+          return 1;
+        }
+      }
+    }
+  }
+  return 0;
+}
+
+=item
+
+Returns 1 if it is a day in the expression of someone's date of death
+
+=cut
+
+sub is_day_of_death {
+  my ($node) = @_;
+  my $form = attr($node, 'form');
+  if ($form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/) {
+    my $parent = $node->getParent;
+    return 0 if !$parent;
+    my $parent_form = attr($parent, 'form');
+    if ($parent_form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12)$/) {
+      my @year_brothers = grep {attr($_, 'form') =~ /^[12][09][0-9][0-9]$/} $parent->getAllChildren;
+      if (scalar(@year_brothers) == 1) {
+        my $grandparent = $parent->getParent;
+        return 0 if !$grandparent;
+        my $grandparent_form = attr($grandparent, 'form') // '';
+        my $grandparent_lemma = attr($grandparent, 'lemma') // '';
+        if ($grandparent_lemma =~ /^(zemřelý)$/ or $grandparent_form =~ /^(zem|z)$/) {
+          return 1;
+        }
+      }
+    }
+  }
+  return 0;
+}
+
+=item
+
+Returns 1 if it is a month in the expression of someone's date of death
+
+=cut
+
+sub is_month_of_death {
+  my ($node) = @_;
+  my $form = attr($node, 'form');
+  if ($form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12)$/) {
+    my $parent = $node->getParent;
+    return 0 if !$parent;
+    my $parent_form = attr($parent, 'form');
+    my $parent_lemma = attr($parent, 'lemma') // '';
+    if ($parent_lemma =~ /^(zemřelý)$/ or $parent_form =~ /^(zem|z)$/) {
+      my @year_sons = grep {attr($_, 'form') =~ /^[12][09][0-9][0-9]$/} $node->getAllChildren;
+      my @day_sons = grep {attr($_, 'form') =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/} $node->getAllChildren;
+      if (scalar(@year_sons) == 1 and scalar(@day_sons)) {
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+=item
+
+Returns 1 if it is a year in the expression of someone's date of death
+
+=cut
+
+sub is_year_of_death {
+  my ($node) = @_;
+  my $form = attr($node, 'form');
+  if ($form =~ /^[12][09][0-9][0-9]$/) {
+    my $parent = $node->getParent;
+    return 0 if !$parent;
+    my $parent_form = attr($parent, 'form');
+    if ($parent_form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12)$/) {
+      my @day_brothers = grep {attr($_, 'form') =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/} $parent->getAllChildren;
+      if (scalar(@day_brothers) == 1) {
+        my $grandparent = $parent->getParent;
+        return 0 if !$grandparent;
+        my $grandparent_form = attr($grandparent, 'form') // '';
+        my $grandparent_lemma = attr($grandparent, 'lemma') // '';
+        if ($grandparent_lemma =~ /^(zemřelý)$/ or $grandparent_form =~ /^(zem|z)$/) {
+          return 1;
+        }
+      }
+    }
+  }
+  return 0;
 }
 
 
@@ -1486,6 +1686,15 @@ sub get_output {
         .replacement-text-nm {
             color: $color_replacement_nm;
         }
+        .replacement-text-nxy {
+            color: $color_replacement_nxy;
+        }
+        .replacement-text-tabc {
+            color: $color_replacement_tabc;
+        }
+        .replacement-text-tijk {
+            color: $color_replacement_tijk;
+        }
         .orig-text {
             color: $color_orig_text;
             text-decoration: line-through;
@@ -1623,8 +1832,17 @@ END_OUTPUT_HEAD
         elsif ($classes =~/\bnl\b/) {
           $span_class .= ' replacement-text-nl';
         }
-        elsif ($classes =~/\bnl\b/) {
+        elsif ($classes =~/\bnm\b/) {
           $span_class .= ' replacement-text-nm';
+        }
+        elsif ($classes =~/\bn[xy]\b/) {
+          $span_class .= ' replacement-text-nxy';
+        }
+        elsif ($classes =~/\bt[abc]\b/) {
+          $span_class .= ' replacement-text-tabc';
+        }
+        elsif ($classes =~/\bt[ijk]\b/) {
+          $span_class .= ' replacement-text-tijk';
         }
         $span_start = "<span class=\"$span_class\">";
         $span_end = '</span>';
