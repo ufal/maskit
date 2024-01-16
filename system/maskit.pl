@@ -39,7 +39,7 @@ my $DESC = <<END_DESC;
 <li>land registration numbers (registrační čísla pozemků)
 <li>birth registration numbers (rodná čísla)
 <li>dates of birth/death
-<li>agenda reference number (čísla jednací)
+<li>agenda reference numbers (čísla jednací)
 </ul>
 <h4>Categories NOT yet handled:</h4>
 <ul>
@@ -626,6 +626,7 @@ Check if the constraint is met at the node.
 
 The constraint is a sequence of morphological properties from UD attribute feats, e.g.:
 Gender=Masc|Number=Sing
+A meta property length may be a part of the constraint, e.g. length=3 or length>9
 
 Returns 0 if the constraint (all parts) is not met.
 Otherwise returns 1.
@@ -642,11 +643,26 @@ sub check_constraint {
   }
 
   my $feats = attr($node, 'feats') // '';
-  mylog(0, "check_constraint: checking constraint '$constraint' against feats '$feats'\n");
+  my $form = attr($node, 'form') // '';
+  mylog(0, "check_constraint: checking constraint '$constraint' against form '$form' and feats '$feats'\n");
 
   my @a_constraints = split('\|', $constraint); # get the individul features
   foreach my $feature (@a_constraints) {
     mylog(0, " - checking if '$feature' matches\n");
+    if ($feature =~ /^length([<=>])(\d+)$/) {
+      my ($operator, $value) = ($1, $2);
+      my $length = length($form);
+      mylog(0, "     - checking length comparison: '$length $operator $value'\n");      
+      if ($operator eq '=') {
+        return $length == $value;
+      }
+      if ($operator eq '>') {
+        return $length > $value;
+      }
+      if ($operator eq '<') {
+        return $length < $value;
+      }
+    }
     if ($feats !~ /\b$feature\b/) { # $feature not in $feats
       mylog(0, "   - constraint $feature not matching; returning 0\n");
       return 0;
