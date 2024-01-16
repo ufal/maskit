@@ -21,7 +21,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.5 20240115'; # version of the program
+my $VER = '0.5 20240116'; # version of the program
 my $DESC = <<END_DESC;
 <h4>Categories handled in this MasKIT version:</h4>
 <ul>
@@ -34,21 +34,21 @@ my $DESC = <<END_DESC;
 <li>town/town part names (incl. multiword)
 <li>ZIP codes
 <li>company names (incl. multiword)
-<li>IČO
-<li>DIČ
+<li>commercial register number (IČO)
+<li>tax register number (DIČ)
 <li>land registration numbers (registrační čísla pozemků)
 <li>birth registration numbers (rodná čísla)
 <li>dates of birth/death
+<li>agenda reference number (čísla jednací)
 </ul>
 <h4>Categories NOT yet handled:</h4>
 <ul>
 <li>ID card numbers (čísla občanských průkazů)
 <li>driver licence numbers
 <li>passport numbers
-<li>commercial register numbers (čísla v obchodním rejstříku)
 <li>account numbers
 <li>data box numbers (čísla datových schránek)
-<li>Údaje o spisech: čísla jednací, spisové značky, čárové/qr kódy
+<li>Údaje o spisech: spisové značky, čárové/qr kódy
 </ul>
 END_DESC
 
@@ -87,6 +87,7 @@ my $color_replacement_nm = 'brown'; # land registration number (katastrální č
 my $color_replacement_nxy = 'darkred'; # birth registration number
 my $color_replacement_tabc = 'darkred'; # date of birth
 my $color_replacement_tijk = 'darkred'; # date of death
+my $color_replacement_nr = 'darkviolet'; # agenda reference number (číslo jednací)
 
 # info text colours
 my $color_orig_text = 'darkgreen';
@@ -680,6 +681,8 @@ ti - day of death
 tj - month of death
 tk - year of death
 
+nr - agenda reference number (číslo jednací)
+
 =cut
 
 sub get_NameTag_marks {
@@ -797,6 +800,11 @@ sub get_NameTag_marks {
   # DIČ
   if (is_DIC($node)) {
     return 'nl'; # fake mark for DIČ
+  }
+
+  # agenda reference number (číslo jednací)
+  if (is_agenda_ref_number($node)) {
+    return 'nr'; # fake mark for agenda reference number
   }
 
   # Street name
@@ -1146,6 +1154,43 @@ sub is_land_register_number {
 
 =item
 
+Returns 1 if the given node appears to be an agenda reference number (číslo jednací). Otherwise returns 0.
+Technically, it returns 1 if:
+- it is a number
+- and:
+  - its parent is lemma číslo/č and among the parent's sons there is lemma jednací/j
+  - or its parent is lemma j and among its sons there is lemma číslo/č
+
+=cut
+
+sub is_agenda_ref_number {
+  my $node = shift;
+  my $form = attr($node, 'form') // '';
+  my $deprel = attr($node, 'deprel') // '';
+  if ($form =~ /^\d+$/) { # a number
+    my $parent = $node->getParent;
+    return 0 if !$parent;
+    my $parent_form = lc(attr($parent, 'form')) // '';
+    my $parent_lemma = attr($parent, 'lemma') // '';
+    if ($parent_lemma eq 'číslo' or $parent_form eq 'č') {
+      my @good_sons = grep {attr($_, 'lemma') eq 'jednací' or lc(attr($_, 'form')) eq 'j'} $parent->getAllChildren;
+      if (@good_sons) {
+        return 1;
+      }
+    }
+    if ($parent_lemma eq 'jednací' or $parent_form eq 'j') {
+      my @good_sons = grep {attr($_, 'lemma') eq 'číslo' or lc(attr($_, 'form')) eq 'č'} $parent->getAllChildren;
+      if (@good_sons) {
+        return 1;
+      }
+    }
+  }
+  return 0;
+}
+
+
+=item
+
 Returns 1 if the given node appears to be the first part of a birth registration number. Otherwise returns 0.
 Technically, it returns 1 if:
 - the node is a 6-digit number and:
@@ -1405,6 +1450,21 @@ sub check_and_hide_multiword_recursive {
       }
       push(@name_parts, @puncts);
       @recursive_name_parts = check_and_hide_multiword_recursive($id, $company_name_part, $class);
+    }
+  }
+  elsif ($class eq 'nr') { # a fake mark for agenda reference number (číslo jednací)
+    @name_parts = grep {attr($_, 'upostag') eq 'NUM' and attr($_, 'deprel') eq 'compound'}
+                  $node->getAllChildren;
+    foreach my $name_part (@name_parts) {
+      set_attr($name_part, 'hidden', $id);
+      mylog(0, "Hiding agenda reference number part " . attr($name_part, 'form') . "\n");
+      my @puncts = grep {attr($_, 'deprel') eq 'punct'} $name_part->getAllChildren; # punctuation
+      foreach my $punct (@puncts) {
+        set_attr($punct, 'hidden', $id);
+        mylog(0, "Hiding punctuation in agenda reference number '" . attr($punct, 'form') . "'\n");
+      }
+      push(@name_parts, @puncts);
+      @recursive_name_parts = check_and_hide_multiword_recursive($id, $name_part, $class);
     }
   }
   
@@ -1695,6 +1755,9 @@ sub get_output {
         .replacement-text-tijk {
             color: $color_replacement_tijk;
         }
+        .replacement-text-nr {
+            color: $color_replacement_nr;
+        }
         .orig-text {
             color: $color_orig_text;
             text-decoration: line-through;
@@ -1843,6 +1906,9 @@ END_OUTPUT_HEAD
         }
         elsif ($classes =~/\bt[ijk]\b/) {
           $span_class .= ' replacement-text-tijk';
+        }
+        elsif ($classes =~/\bnr\b/) {
+          $span_class .= ' replacement-text-nr';
         }
         $span_start = "<span class=\"$span_class\">";
         $span_end = '</span>';
