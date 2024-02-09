@@ -58,4 +58,18 @@ Zde je návod, jak postupovat:
 
 Tímto způsobem byste měl mít svoji REST API službu spuštěnou jako systémovou službu, která bude fungovat nezávisle na terminálu a bude se také automaticky restartovat po restartu počítače.
 
+===========
+Pozn.
+Vstupní body služby REST API (např. info, process) je potřeba nastavit také v konfiguraci serveru Apache:
+/etc/apache2/sites-available/000-default.conf, např.:
+
+        # Proxy pro /api/process a /api/info
+        ProxyPass "/api/process" "http://localhost:3000/api/process"
+        ProxyPassReverse "/api/process" "http://localhost:3000/api/process"
+        ProxyPass "/api/info" "http://localhost:3000/api/info"
+        ProxyPassReverse "/api/info" "http://localhost:3000/api/info"
+
+a pak provést
+  sudo service apache restart
+
 COMMENT
