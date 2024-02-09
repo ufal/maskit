@@ -19,7 +19,7 @@
   </tr>
   <tr>
       <th>Status</th>
-      <td>Development, version 0.1</td>
+      <td>Development</td>
   </tr>
   <tr>
       <th>OS</th>
