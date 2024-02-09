@@ -32,6 +32,11 @@ handling.</p>
     <td><a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit" target="_blank">process the text and replace personal information</a></td>
     <td>GET/POST</td>
 </tr>
+<tr>
+    <td><a href="#info">info</a></td>
+    <td><!--a href="http://ufal.mff.cuni.cz/maskit/users-manual#info" target="_blank"-->get the server version and a list of supported features</a></td>
+    <td>GET/POST</td>
+</tr>
 </table>
 
 
@@ -60,6 +65,25 @@ following structure:</p>
 
 The <code>processed_output</code> is the output of MasKIT in the requested output format
 <br/>and <code>statistics</code> is an HTML overview with (so far only) the MasKIT version, the size of the text and the processing time.
+
+
+<h3>Method <a id='info'>info</a></h3>
+
+<p>Returns the info about the server - the MasKIT version and a list of supported features. The method does not have parameters.</p>
+
+<p>
+The response is in <a href="http://en.wikipedia.org/wiki/JSON" target="_blank">JSON</a> format of the
+following structure:</p>
+
+<pre class="prettyprint lang-json">
+{
+ "version": "MasKIT_version"
+ "features": "supported_features"
+}
+</pre>
+
+The <code>MasKIT_version</code> is the version of the server consisting of the version number and the creation date; in case of an anonymized server (without text logging), these are followed by the string "(no text logging)",
+<br/>and <code>supported_features</code> is a list of types of personal information that the server anonymizes, separated by '•'.
 
 
 <h2 style="margin-top: 20px">Browser Example</h2>

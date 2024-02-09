@@ -75,7 +75,7 @@
   function getInfo() { // call the server and get the MasKIT version and a list of supported features
 
     var options = {info: null};
-    // console.log("getInfo: options: ", options);
+    //console.log("getInfo: options: ", options);
 
     var form_data = null;
     if (window.FormData) {
@@ -86,28 +86,31 @@
 
     var version = 'unknown (<font color="red">the MasKIT server seems to be off-line!</font>)';
     var features = 'unknown';
+    //console.log("Calling api/info");
     jQuery.ajax('//quest.ms.mff.cuni.cz/maskit/api/info',
            {data: form_data ? form_data : options, processData: form_data ? false : true,
             contentType: form_data ? false : 'application/x-www-form-urlencoded; charset=UTF-8',
             dataType: "json", type: "POST", success: function(json) {
       try {
         if ("version" in json) {
-              version = json.version;
+		version = json.version;
+		//console.log("json.version: ", version);
         }
         if ("features" in json) {
-              features = json.stats;
+              features = json.features;
         }
 
       } catch(e) {
         // no need to do anything
       }
     }, error: function(jqXHR, textStatus) {
-      alert("An error occurred" + ("responseText" in jqXHR ? ": " + jqXHR.responseText : "!"));
+      console.log("An error occurred" + ("responseText" in jqXHR ? ": " + jqXHR.responseText : "!"));
     }, complete: function() {
-      // no need to do anything
+      //console.log("Complete.");
+      var info = "<h4>MasKIT server info</h4>\n<ul><li>version: <i>" + version + "</i>\n<li>supported features: <i>" + features + "</i>\n</ul>\n";
+      jQuery('#server_info').html(info).show();
+      //console.log("Info: ", info);
     }});
-    var info = "<h4>MasKIT server info</h4>\n<p> - version: " + version + "<br/>\n - supported features: " + features + "\n</p>\n";
-    jQuery('#server_info').html(info);
   }
   
   
@@ -230,7 +233,7 @@
   <div class="panel-heading">Service</div>
   <div class="panel-body">
 
-    <div id="server_info" class="alert" style="display: none"></div>
+    <div id="server_info" style="display: none"></div>
   
     <?php require('licence.html') ?>
     
