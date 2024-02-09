@@ -8,6 +8,11 @@
   var output_file_stats = null;
   var output_format = null;
 
+  document.addEventListener("DOMContentLoaded", function() {
+      getInfo();
+      //console.log("DOM byl kompletně načten!");
+  });
+
   function doSubmit() {
     //var model = jQuery('#model :selected').text();
     //if (!model) return;
@@ -66,6 +71,47 @@
     }});
   }
 
+  
+  function getInfo() { // call the server and get the MasKIT version and a list of supported features
+
+    var options = {info: null};
+    // console.log("getInfo: options: ", options);
+
+    var form_data = null;
+    if (window.FormData) {
+      form_data = new FormData();
+      for (var key in options)
+        form_data.append(key, options[key]);
+    }
+
+    var version = 'unknown (<font color="red">the MasKIT server seems to be off-line!</font>)';
+    var features = 'unknown';
+    jQuery.ajax('//quest.ms.mff.cuni.cz/maskit/api/info',
+           {data: form_data ? form_data : options, processData: form_data ? false : true,
+            contentType: form_data ? false : 'application/x-www-form-urlencoded; charset=UTF-8',
+            dataType: "json", type: "POST", success: function(json) {
+      try {
+        if ("version" in json) {
+              version = json.version;
+        }
+        if ("features" in json) {
+              features = json.stats;
+        }
+
+      } catch(e) {
+        // no need to do anything
+      }
+    }, error: function(jqXHR, textStatus) {
+      alert("An error occurred" + ("responseText" in jqXHR ? ": " + jqXHR.responseText : "!"));
+    }, complete: function() {
+      // no need to do anything
+    }});
+    var info = "<h4>MasKIT server info</h4>\n<p> - version: " + version + "<br/>\n - supported features: " + features + "\n</p>\n";
+    jQuery('#server_info').html(info);
+  }
+  
+  
+  
   function saveAs(blob, file_name) {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -184,9 +230,11 @@
   <div class="panel-heading">Service</div>
   <div class="panel-body">
 
+    <div id="server_info" class="alert" style="display: none"></div>
+  
     <?php require('licence.html') ?>
+    
     <p>Please note that due to time limitations on our proxy server, the maximum length for input text is approximately 5 thousand words.</p>
-
 
     <div id="error" class="alert alert-danger" style="display: none"></div>
 

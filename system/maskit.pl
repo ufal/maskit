@@ -21,25 +21,33 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.5 20240116'; # version of the program
-my $DESC = <<END_DESC;
-<h4>Categories handled in this MasKIT version:</h4>
-<ul>
-<li>first names
-<li>surnames (male and female tied)
-<li>phone numbers
-<li>e-mails
-<li>street names (incl. multiword)
-<li>street numbers
-<li>town/town part names (incl. multiword)
-<li>ZIP codes
-<li>company names (incl. multiword)
-<li>commercial register number (IČO)
-<li>tax register number (DIČ)
-<li>land registration numbers (registrační čísla pozemků)
-<li>birth registration numbers (rodná čísla)
-<li>dates of birth/death
-<li>agenda reference numbers (čísla jednací)
+my $VER = '0.51 20240209'; # version of the program
+
+my @features = ('first names',
+                'surnames (male and female tied)',
+                'phone numbers',
+                'e-mails',
+                'street names (incl. multiword)',
+                'street numbers',
+                'town/town part names (incl. multiword)',
+                'ZIP codes',
+                'company names (incl. multiword)',
+                'commercial register number (IČO)',
+                'tax register number (DIČ)',
+                'land registration numbers (registrační čísla pozemků)',
+                'birth registration numbers (rodná čísla)',
+                'dates of birth/death',
+                'agenda reference numbers (čísla jednací)');
+
+my $FEATS = join(' • ', @features); 
+
+my $DESC = "<h4>Categories handled in this MasKIT version:</h4>\n<ul>\n";
+
+foreach my $feature (@features) {
+  $DESC .= "<li>$feature\n";
+}
+
+$DESC .= <<END_DESC;
 </ul>
 <h4>Categories NOT yet handled:</h4>
 <ul>
@@ -118,6 +126,7 @@ my $output_statistics;
 my $store_format;
 my $store_statistics;
 my $version;
+my $info;
 my $help;
 
 # getting the arguements
@@ -130,10 +139,11 @@ GetOptions(
     'of|output-format=s'     => \$output_format, # output format, possible values: txt, html, conllu
     'd|diff'                 => \$diff, # display the original expressions next to the anonymized versions
     'ne|named-entities=s'    => \$add_NE, # add named entities as marked by NameTag (1: to the anonymized versions, 2: to all recognized tokens)
-    'os|output-statistics' => \$output_statistics, # adds statistics to the output; if present, output is JSON with two items: data (in output-format) and stats (in HTML)
+    'os|output-statistics'   => \$output_statistics, # adds statistics to the output; if present, output is JSON with two items: data (in output-format) and stats (in HTML)
     'sf|store-format=s'      => \$store_format, # log the result in the given format: txt, html, conllu
     'ss|store-statistics'    => \$store_statistics, # should statistics be logged as an HTML file?
     'v|version'              => \$version, # print the version of the program and exit
+    'n|info'                 => \$info, # print the info (program version and supported features) as JSON and exit
     'h|help'                 => \$help, # print a short help and exit
 );
 
@@ -144,6 +154,18 @@ my $script_dir = dirname($script_path);  # Získá pouze adresář ze získané 
 
 if ($version) {
   print "Anonymizer version $VER.\n";
+  exit 0;
+}
+
+if ($info) {
+  my $json_data = {
+       version  => $VER,
+       features => $FEATS,
+     };
+  # Encode the Perl data structure into a JSON string
+  my $json_string = encode_json($json_data);
+  # Print the JSON string to STDOUT
+  print $json_string;
   exit 0;
 }
 
@@ -163,6 +185,7 @@ options:  -i|--input-file [input text file name]
          -sf|--store-format [format: log the output in the given format: txt, html, conllu]
          -ss|--store-statistics (log statistics to an HTML file)
           -v|--version (prints the version of the program and ends)
+          -n|--info (prints program version and supported features as JSON and ends)
           -h|--help (prints a short help and ends)
 END_TEXT
   print $text;
@@ -261,7 +284,7 @@ if ($store_statistics) {
   mylog(0, " - log MasKIT statistics in an HTML file\n");
 }
 
-print mylog(0, "\n");
+mylog(0, "\n");
 
 ###################################################################################
 # Let us first read the file with replacements
@@ -545,7 +568,7 @@ foreach $root (@trees) {
 
       foreach my $constraint (split(/_/, $constraints)) { # split the constraints by separator '_' and work with one constraint at a time
 
-        my $matches = check_constraint($node, $form, $constraint); # check if the constraint is met (e.g., Gender=Fem); empty constraint is represented by 'NoConstraint'
+        my $matches = check_constraint($node, $constraint); # check if the constraint is met (e.g., Gender=Fem); empty constraint is represented by 'NoConstraint'
         if (!$matches) {
           mylog(0, " - the constraint '$constraint' for form '$form' is not met.\n");
           next;
@@ -635,7 +658,7 @@ Otherwise returns 1.
 
 
 sub check_constraint {
-  my ($node, $form, $constraint) = @_;
+  my ($node, $constraint) = @_;
 
   if ($constraint eq 'NoConstraint') { # no constraint, i.e. trivially matched
     mylog(0, " - no constraint, i.e. trivially matched\n");
@@ -967,7 +990,7 @@ Returns 1 if it is a day in the expression of someone's date of birth
 
 sub is_day_of_birth {
   my ($node) = @_;
-  my $form = attr($node, 'form');
+  my $form = attr($node, 'form') // '';;
   if ($form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/) {
     my $parent = $node->getParent;
     return 0 if !$parent;
@@ -996,7 +1019,7 @@ Returns 1 if it is a month in the expression of someone's date of birth
 
 sub is_month_of_birth {
   my ($node) = @_;
-  my $form = attr($node, 'form');
+  my $form = attr($node, 'form') // '';;
   if ($form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12)$/) {
     my $parent = $node->getParent;
     return 0 if !$parent;
@@ -1021,7 +1044,7 @@ Returns 1 if it is a year in the expression of someone's date of birth
 
 sub is_year_of_birth {
   my ($node) = @_;
-  my $form = attr($node, 'form');
+  my $form = attr($node, 'form') // '';;
   if ($form =~ /^[12][09][0-9][0-9]$/) {
     my $parent = $node->getParent;
     return 0 if !$parent;
@@ -1050,7 +1073,7 @@ Returns 1 if it is a day in the expression of someone's date of death
 
 sub is_day_of_death {
   my ($node) = @_;
-  my $form = attr($node, 'form');
+  my $form = attr($node, 'form') // '';
   if ($form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/) {
     my $parent = $node->getParent;
     return 0 if !$parent;
@@ -1079,7 +1102,7 @@ Returns 1 if it is a month in the expression of someone's date of death
 
 sub is_month_of_death {
   my ($node) = @_;
-  my $form = attr($node, 'form');
+  my $form = attr($node, 'form') // '';
   if ($form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12)$/) {
     my $parent = $node->getParent;
     return 0 if !$parent;
@@ -1104,7 +1127,7 @@ Returns 1 if it is a year in the expression of someone's date of death
 
 sub is_year_of_death {
   my ($node) = @_;
-  my $form = attr($node, 'form');
+  my $form = attr($node, 'form') // '';
   if ($form =~ /^[12][09][0-9][0-9]$/) {
     my $parent = $node->getParent;
     return 0 if !$parent;
@@ -1219,7 +1242,7 @@ Technically, it returns 1 if:
 
 sub is_birth_number_part1 {
   my $node = shift;
-  my $lemma = attr($node, 'lemma');
+  my $lemma = attr($node, 'lemma') // '';
 
   if ($lemma =~ /^([0-9][0-9])[0-9][0-9][0-9][0-9]$/) { # might be the first part of a birth registration number
     #mylog(0, "is_birth_number_part1: six-digit number\n");

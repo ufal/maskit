@@ -39,76 +39,76 @@ binmode STDERR, ':encoding(UTF-8)';
 my $script_path = $0;  # Získá název spuštěného skriptu s cestou
 my $script_dir = dirname($script_path);  # Získá pouze adresář ze získané cesty
 
-# Endpoint pro test
-any '/api/test' => sub {
+# Endpoint pro info
+any '/api/info' => sub {
     my $c = shift;
-    if ($c->req->method eq 'POST') {
-        # Zde můžete zpracovat data odeslaná v těle požadavku POST
-        my $data = $c->req->json;
-        # Pro ilustraci jen odeslat data zpět jako odpověď
-        return $c->render(json => { message => 'This is the test function called via POST.',
-                                    result => 'A dummy result' });
-    }
-    else {
-        # Zpracování GET požadavku
-        return $c->render(json => { message => 'This is the test function called via GET.',
-                                    result => 'A dummy result' });
-    }
+    my $method = $c->req->method;
+
+    # Spuštění skriptu maskit.pl s parametrem pro získání info
+    my @cmd = ('/usr/bin/perl', "$script_dir/maskit.pl",
+               '--info');
+    my $stdin_data = '';
+    my $result_json;
+    run \@cmd, \$stdin_data, \$result_json;
+        
+    # Decode the output as a JSON object
+    my $json_data = decode_json($result_json);
+
+    # Access the 'data' and 'stats' items in the JSON object
+    my $version  = $json_data->{'version'};
+    my $features = $json_data->{'features'};
+    my $version_utf8 = decode_utf8($version);
+    my $features_utf8 = decode_utf8($features);
+
+    # Vytvoření odpovědi
+    $c->res->headers->content_type('application/json; charset=UTF-8');
+    my $data = {message => "This is the info function of the MasKIT service called via $method.",
+                version => "$version_utf8", features => "$features_utf8" };
+    # print STDERR Dumper($data);
+    return $c->render(json => $data);
 };
 
 # Endpoint pro process
 any '/api/process' => sub {
     my $c = shift;
-    #if ($c->req->method eq 'POST') {
+    my $method = $c->req->method;
+    
+    my $text = $c->param('text'); # input text
+    my $input_format = $c->param('input'); # input format
+    my $output_format = $c->param('output'); # output format
+    my $randomize = defined $c->param('randomize') ? 1 : 0; # randomization
 
-        my $method = $c->req->method;
-        my $text = $c->param('text'); # input text
-        my $input_format = $c->param('input'); # input format
-        my $output_format = $c->param('output'); # output format
-	my $randomize = defined $c->param('randomize') ? 1 : 0; # randomization
-
-	# Spuštění skriptu maskit.pl s předáním parametrů a standardního vstupu
-        my @cmd = ('/usr/bin/perl', "$script_dir/maskit.pl",
-		   '--stdin',
-		   '--replacements-file', "$script_dir/resources/replacements.csv",
-		   '--input-format', $input_format, 
-		   '--output-format', $output_format,
-		   '--diff',
-		   '--output-statistics');
-	if ($randomize) {
-	  push(@cmd, '--randomize');
-	}
-        my $stdin_data = $text;
-        my $result_json;
-        run \@cmd, \$stdin_data, \$result_json;
+    # Spuštění skriptu maskit.pl s předáním parametrů a standardního vstupu
+    my @cmd = ('/usr/bin/perl', "$script_dir/maskit.pl",
+               '--stdin',
+               '--replacements-file', "$script_dir/resources/replacements.csv",
+               '--input-format', $input_format, 
+               '--output-format', $output_format,
+               '--diff',
+               '--output-statistics');
+    if ($randomize) {
+        push(@cmd, '--randomize');
+    }
+    my $stdin_data = $text;
+    my $result_json;
+    run \@cmd, \$stdin_data, \$result_json;
         
-        # Decode the output as a JSON object
-        my $json_data = decode_json($result_json);
+    # Decode the output as a JSON object
+    my $json_data = decode_json($result_json);
 
-        # Access the 'data' and 'stats' items in the JSON object
-        my $result  = $json_data->{'data'};
-        my $stats = $json_data->{'stats'};
-	      my $result_utf8 = decode_utf8($result);
-	      my $stats_utf8 = decode_utf8($stats);
-	      
-        # Vytvoření odpovědi
-	      $c->res->headers->content_type('application/json; charset=UTF-8');
-	      my $data = {message => "This is the process function of the MasKIT service called via $method; input format=$input_format, output format=$output_format.",
-                                    result => "$result_utf8", stats => "$stats_utf8" };
-        # print STDERR Dumper($data);
-	      return $c->render(json => $data);
-    # }
-    # else { # GET
+    # Access the 'data' and 'stats' items in the JSON object
+    my $result  = $json_data->{'data'};
+    my $stats = $json_data->{'stats'};
+    my $result_utf8 = decode_utf8($result);
+    my $stats_utf8 = decode_utf8($stats);
 
-        # # Přečtěte parametry z GET requestu
-	# my $text = $c->param('text'); # input text
-	# my $input_format = $c->param('input'); # input format
-	# my $output_format = $c->param('output'); # output format
+    # Vytvoření odpovědi
+    $c->res->headers->content_type('application/json; charset=UTF-8');
+    my $data = {message => "This is the process function of the MasKIT service called via $method; input format=$input_format, output format=$output_format.",
+                result => "$result_utf8", stats => "$stats_utf8" };
+    # print STDERR Dumper($data);
+    return $c->render(json => $data);
 
-        # # Zpracování GET požadavku
-	# return $c->render(json => { message => 'This is the detect function called via GET.',
-	#                                    result => "input format: '$input_format', output format: '$output_format', text: '$text'" });
-    #}
 };
 
 app->start;
