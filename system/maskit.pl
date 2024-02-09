@@ -185,7 +185,7 @@ options:  -i|--input-file [input text file name]
          -sf|--store-format [format: log the output in the given format: txt, html, conllu]
          -ss|--store-statistics (log statistics to an HTML file)
           -v|--version (prints the version of the program and ends)
-          -n|--info (prints program version and supported features as JSON and ends)
+          -n|--info (prints the program version and supported features as JSON and ends)
           -h|--help (prints a short help and ends)
 END_TEXT
   print $text;
