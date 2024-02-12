@@ -27,7 +27,7 @@
   </tr>
   <tr>
       <th>Licence</th>
-      <td><a href="http://creativecommons.org/licenses/by-nc-sa/3.0/" target="_blank">CC BY-NC-SA</a></td>
+      <td><a href="http://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA</a></td>
   </tr>
   <tr>
       <th>Contact</th>
