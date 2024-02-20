@@ -72,7 +72,7 @@ if ($hostname eq 'maskit') { # if running at this server, use versions of udpipe
   $log_level = 2; # anonymous
 }
 
-$VER .= ', status: <font color="green">online</font>';
+$VER .= ', <span style="font-style: normal">status:</span> <font color="green">online</font>';
 
 #############################
 # Colours for html
