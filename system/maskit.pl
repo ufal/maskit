@@ -56,7 +56,7 @@ $DESC .= <<END_DESC;
 <li>passport numbers
 <li>account numbers
 <li>data box numbers (čísla datových schránek)
-<li>Údaje o spisech: spisové značky, čárové/qr kódy
+<li>Údaje o spisech: spisové značky
 </ul>
 END_DESC
 
