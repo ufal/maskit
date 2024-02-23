@@ -94,6 +94,7 @@
       try {
         if ("version" in json) {
 		version = json.version;
+		version += ', <span style="font-style: normal">status:</span> <font color="green">online</font>';
 		//console.log("json.version: ", version);
         }
         if ("features" in json) {
