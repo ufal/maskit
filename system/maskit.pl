@@ -1630,7 +1630,7 @@ sub get_replacement {
     mylog(0, "get_replacement: Found a previously assigned replacement index for group $group and stem $stem: $replacement_index\n");
     if ($replace_with_classes) {
       $replacement = $a_replacements[0];
-      $replacement .= '_' . ($replacement_index + 1);
+      $replacement .= '-' . ($replacement_index + 1);
     }
     else {
       my $number_of_replacements = scalar(@a_replacements);
@@ -1651,7 +1651,7 @@ sub get_replacement {
       $group2next_index{$group}++;
       if ($replace_with_classes) {
         $replacement = $a_replacements[0];
-        $replacement .= '_' . ($replacement_index + 1);
+        $replacement .= '-' . ($replacement_index + 1);
       }
       else {
         my $number_of_replacements = scalar(@a_replacements);
