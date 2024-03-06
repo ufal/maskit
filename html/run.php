@@ -24,14 +24,21 @@
     output_format = jQuery('input[name=option_output]:checked').val();
     //console.log("doSubmit: Output format: ", output_format);
     // Zjistíme stav checkboxu s id "option-randomize"
-    var jeZaskrtnuto = $('#option_randomize').prop('checked');
-    //console.log("doSubmit: Randomize: ", jeZaskrtnuto);
     var options = {text: input_text, input: input_format, output: output_format};
-    // console.log("doSubmit: options: ", options);
+    var jeZaskrtnutoRandomize = $('#option_randomize').prop('checked');
+    //console.log("doSubmit: Randomize: ", jeZaskrtnutoRandomize);
     // Přidáme parametr "randomize", pokud je checkbox zaškrtnutý
-    if (jeZaskrtnuto) {
+    if (jeZaskrtnutoRandomize) {
       options.randomize = null; // Nebo prázdný řetězec, záleží na konkrétní implementaci serveru
     }
+    // Zjistíme stav checkboxu s id "option-classes"
+    var jeZaskrtnutoClasses = $('#option_classes').prop('checked');
+    //console.log("doSubmit: Replace with classes: ", jeZaskrtnutoClasses);
+    // Přidáme parametr "classes", pokud je checkbox zaškrtnutý
+    if (jeZaskrtnutoClasses) {
+      options.classes = null; // Nebo prázdný řetězec, záleží na konkrétní implementaci serveru
+    }
+    // console.log("doSubmit: options: ", options);
 
     var form_data = null;
     if (window.FormData) {
@@ -266,7 +273,10 @@
       <div class="form-group row">
         <label class="col-sm-2 control-label">Options:</label>
         <div class="col-sm-10">
-          <label title="Tokenize input using a tokenizer" class="checkbox-inline" id="option_randomize_label"><input id="option_randomize" name="option_randomize" type="checkbox" checked/>Randomize replacements</label>
+          <label title="Randomize the order of replacements" class="checkbox-inline" id="option_randomize_label"><input id="option_randomize" name="option_randomize" type="checkbox" checked/>Randomize replacements</label>
+        </div>
+        <div class="col-sm-10">
+          <label title="Use classes as replacements instead of fake names" class="checkbox-inline" id="option_classes_label"><input id="option_classes" name="option_classes" type="checkbox"/>Use classes as replacements</label>
         </div>
       </div>
     </div>

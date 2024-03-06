@@ -77,6 +77,7 @@ any '/api/process' => sub {
     my $input_format = $c->param('input'); # input format
     my $output_format = $c->param('output'); # output format
     my $randomize = defined $c->param('randomize') ? 1 : 0; # randomization
+    my $classes = defined $c->param('classes') ? 1 : 0; # classes as replacements
 
     # Spuštění skriptu maskit.pl s předáním parametrů a standardního vstupu
     my @cmd = ('/usr/bin/perl', "$script_dir/maskit.pl",
@@ -88,6 +89,9 @@ any '/api/process' => sub {
                '--output-statistics');
     if ($randomize) {
         push(@cmd, '--randomize');
+    }
+    if ($classes) {
+        push(@cmd, '--classes');
     }
     my $stdin_data = $text;
     my $result_json;
