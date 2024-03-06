@@ -321,7 +321,7 @@ while (<REPLACEMENTS>) {
     my $group = $2;
     my $constraint = $3;
     my $replacements = $4;
-    if ($randomize) { # randomly mix the replacements (but in the same way for all replacement lines in the same group)
+    if ($randomize and $constraint !~ /ClassName/) { # randomly mix the replacements (but in the same way for all replacement lines in the same group)
       #mylog(0, "Before randomization: $group\t$replacements\n");
       $replacements = reorder_replacements($replacements, $group);
       #mylog(0, "After randomization:  $group\t$replacements\n");
@@ -1593,12 +1593,15 @@ sub shuffle_indices {
 
 
 sub get_replacement {
-  my ($node, $class, $constraint) = @_;
-
+  my ($node, $class, $constraint) = @_;  
+  
   my $lemma = attr($node, 'lemma') // '';
   my $form = attr($node, 'form') // '';
   my $stem = get_stem_from_lemma($lemma);
 
+  mylog(0, "get_replacement: Looking for replacement for form '$form' and constraint '$constraint'.\n");
+
+  
 =item
 
   # check if this lemma with this NameTag class has already been replaced
