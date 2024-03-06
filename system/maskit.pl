@@ -21,7 +21,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.52 20240220'; # version of the program
+my $VER = '0.53 20240306'; # version of the program
 
 my @features = ('first names',
                 'surnames (male and female tied)',
@@ -117,6 +117,7 @@ my $stdin;
 my $input_format;
 my $replacements_file;
 my $randomize;
+my $replace_with_classes;
 my $output_format;
 my $diff;
 my $add_NE;
@@ -134,6 +135,7 @@ GetOptions(
     'if|input-format=s'      => \$input_format, # input format, possible values: txt, presegmented
     'rf|replacements-file=s' => \$replacements_file, # the name of the file with replacements
     'r|randomize'            => \$randomize, # if used, the replacements are selected in random order
+    'c|classes'              => \$replace_with_classes, # if used, classes are used as replacements
     'of|output-format=s'     => \$output_format, # output format, possible values: txt, html, conllu
     'd|diff'                 => \$diff, # display the original expressions next to the anonymized versions
     'ne|named-entities=s'    => \$add_NE, # add named entities as marked by NameTag (1: to the anonymized versions, 2: to all recognized tokens)
@@ -176,6 +178,7 @@ options:  -i|--input-file [input text file name]
          -if|--input-format [input format: txt (default) or presegmented]
          -rf|--replacements-file [replacements file name]
           -r|--randomize (if used, the replacements are selected in random order)
+          -c|--classes (if used, classes are used as replacements)
          -of|--output-format [output format: txt (default), html, conllu]
           -d|--diff (display the original expressions next to the anonymized versions)
          -ne|--named-entities [scope: 1 - add NameTag marks to the anonymized versions, 2 - to all recognized tokens]
@@ -232,6 +235,13 @@ if ($randomize) {
 }
 else {
   mylog(0, " - replacements will be selected in order as present in the replacements file\n");
+}
+
+if ($replace_with_classes) {
+  mylog(0, " - classes instead of fake names will be used as replacements\n");
+}
+else {
+  mylog(0, " - fake names (not classes) will be used as replacements\n");
 }
 
 $output_format = lc($output_format) if $output_format;
@@ -571,6 +581,10 @@ foreach $root (@trees) {
           mylog(0, " - the constraint '$constraint' for form '$form' is not met.\n");
           next;
         }
+        if ($constraint !~ /ClassName/ and $replace_with_classes) { # ClassName not among the properties of this constraint but class replacements are required
+          mylog(0, " - the constraint '$constraint' for form '$form' is not met after all because of missing ClassName.\n");
+          next;
+        }
         mylog(0, " - the constraint '$constraint' for form '$form' matches.\n");
         my $replacement = get_replacement($node, $class, $constraint);
         mylog(0, "    - replacement in class $class: '$form' -> '$replacement'\n");
@@ -648,6 +662,7 @@ Check if the constraint is met at the node.
 The constraint is a sequence of morphological properties from UD attribute feats, e.g.:
 Gender=Masc|Number=Sing
 A meta property length may be a part of the constraint, e.g. length=3 or length>9
+A meta property ClassName indicates the constraint that should be used if $replace_with_classes is set
 
 Returns 0 if the constraint (all parts) is not met.
 Otherwise returns 1.
@@ -673,22 +688,37 @@ sub check_constraint {
     if ($feature =~ /^length([<=>])(\d+)$/) {
       my ($operator, $value) = ($1, $2);
       my $length = length($form);
-      mylog(0, "     - checking length comparison: '$length $operator $value'\n");      
+      mylog(0, "     - checking length comparison: '$length $operator $value'\n");
       if ($operator eq '=') {
-        return $length == $value;
+        if ($length != $value) {
+          mylog(0, "   - constraint $feature not matching; returning 0\n");
+          return 0;
+        }
       }
-      if ($operator eq '>') {
-        return $length > $value;
+      elsif ($operator eq '>') {
+        if ($length <= $value) {
+          mylog(0, "   - constraint $feature not matching; returning 0\n");
+          return 0;
+        }
       }
-      if ($operator eq '<') {
-        return $length < $value;
+      elsif ($operator eq '<') {
+        if ($length >= $value) {
+          mylog(0, "   - constraint $feature not matching; returning 0\n");
+          return 0;
+        }
       }
     }
-    if ($feats !~ /\b$feature\b/) { # $feature not in $feats
+    elsif ($feature eq 'ClassName') {
+      if (!$replace_with_classes) {
+        mylog(0, "   - constraint $feature not matching; returning 0\n");
+        return 0;
+      }
+    }
+    elsif ($feats !~ /\b$feature\b/) {
       mylog(0, "   - constraint $feature not matching; returning 0\n");
       return 0;
     }
-    mylog(0, "   - constraint $feature not matches\n");
+    mylog(0, "   - constraint $feature matches\n");
   }
   mylog(0, " - OK, all features matched, the constraint matches.\n");
   return 1;
@@ -1592,33 +1622,47 @@ sub get_replacement {
   my $replacement;
   # check if this stem in this group has already been replaced
   my $replacement_index = $group_stem2index{$group . '_' . $stem};
+  my $new = 0;
   if (defined($replacement_index)) {
     mylog(0, "get_replacement: Found a previously assigned replacement index for group $group and stem $stem: $replacement_index\n");
-    my $number_of_replacements = scalar(@a_replacements);
-    if ($replacement_index >= $number_of_replacements) { # maximum index exceeded
-      $replacement = '[' . $class . '_#' . $replacement_index . ']';
-      mylog(0, "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n");
+    if ($replace_with_classes) {
+      $replacement = $a_replacements[0];
+      $replacement .= '_' . ($replacement_index + 1);
     }
     else {
-      $replacement = $a_replacements[$replacement_index];
+      my $number_of_replacements = scalar(@a_replacements);
+      if ($replacement_index >= $number_of_replacements) { # maximum index exceeded
+        $replacement = '[' . $class . '_#' . $replacement_index . ']';
+        mylog(0, "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n");
+      }
+      else {
+        $replacement = $a_replacements[$replacement_index];
+      }
     }
   }
-  my $new = 0;
-  while (!defined($replacement_index)) { # this stem within this group has not yet been seen, so use a new index
-    mylog(0, "get_replacement: Unseen group $group and stem $stem, assigning a new replacement index\n");
-    $replacement_index = $group2next_index{$group} // 0;
-    $group2next_index{$group}++;
-    $new = 1;
-    my $number_of_replacements = scalar(@a_replacements);
-    if ($replacement_index >= $number_of_replacements) { # maximum index exceeded
-      $replacement = '[' . $class . '_#' . $replacement_index . ']';
-      mylog(0, "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n");
-    }
-    else {
-      $replacement = $a_replacements[$replacement_index];
-      if (lc($replacement) eq lc($form)) { # the replacement is accidentally equal to the original form (e.g., Praze vs. Praze); let us skip this replacement index
-        mylog(0, "    - the replacement is equal to the original form ($form); let us skip this replacement index ($replacement_index)\n");
-        $replacement_index = undef; # run the while cycle one more time to use the next replacement index
+  else { # this stem within this group has not yet been seen, so use a new index
+    while (!defined($replacement_index)) { # while je tu kvůli podmínce na shodu originálu s replacement níže
+      mylog(0, "get_replacement: Unseen group $group and stem $stem, assigning a new replacement index\n");
+      $new = 1;
+      $replacement_index = $group2next_index{$group} // 0;
+      $group2next_index{$group}++;
+      if ($replace_with_classes) {
+        $replacement = $a_replacements[0];
+        $replacement .= '_' . ($replacement_index + 1);
+      }
+      else {
+        my $number_of_replacements = scalar(@a_replacements);
+        if ($replacement_index >= $number_of_replacements) { # maximum index exceeded
+          $replacement = '[' . $class . '_#' . $replacement_index . ']';
+          mylog(0, "    - maximum replacement index $number_of_replacements exceeded by requested index $replacement_index!\n");
+        }
+        else {
+          $replacement = $a_replacements[$replacement_index];
+          if (lc($replacement) eq lc($form)) { # the replacement is accidentally equal to the original form (e.g., Praze vs. Praze); let us skip this replacement index
+            mylog(0, "    - the replacement is equal to the original form ($form); let us skip this replacement index ($replacement_index)\n");
+            $replacement_index = undef; # run the while cycle one more time to use the next replacement index
+          }
+        }
       }
     }
   }
