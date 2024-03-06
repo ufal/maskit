@@ -274,8 +274,6 @@
         <label class="col-sm-2 control-label">Options:</label>
         <div class="col-sm-10">
           <label title="Randomize the order of replacements" class="checkbox-inline" id="option_randomize_label"><input id="option_randomize" name="option_randomize" type="checkbox" checked/>Randomize replacements</label>
-        </div>
-        <div class="col-sm-10">
           <label title="Use classes as replacements instead of fake names" class="checkbox-inline" id="option_classes_label"><input id="option_classes" name="option_classes" type="checkbox"/>Use classes as replacements</label>
         </div>
       </div>
