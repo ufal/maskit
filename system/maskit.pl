@@ -21,7 +21,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.53 20240306'; # version of the program
+my $VER = '0.54 20240307'; # version of the program
 
 my @features = ('first names',
                 'surnames (male and female tied)',
