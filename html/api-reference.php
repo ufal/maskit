@@ -50,7 +50,10 @@ handling.</p>
 <tr><td>input</td><td>no</td><td>string</td><td>Input format; possible values: <code>txt</code> (default), <code>presegmented</code>, see <a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_input" target="_blank">input format</a> for details.</td></tr>
 <tr><td>output</td><td>no</td><td>string</td><td>Output format; possible values: <code>txt</code> (default), <code>html</code>, <code>conllu</code>, see <a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank">output format</a> for details.</td></tr>
 <tr><td>randomize</td><td>no</td><td>N/A</td><td>If present, the replacements are selected in random order.</td></tr>
+<tr><td>classes</td><td>no</td><td>N/A</td><td>If present, classes (instead of fake names) are used as replacements.</td></tr>
 </table>
+
+<p>Parameters <code>randomize</code> and <code>classes</code> are mutually exlusive.</p>
 
 <p>
 The response is in <a href="http://en.wikipedia.org/wiki/JSON" target="_blank">JSON</a> format of the
