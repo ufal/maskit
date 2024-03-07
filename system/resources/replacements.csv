@@ -103,13 +103,13 @@ gq	urban_part_number	NumForm=Digit	1|2|3|4|5|6|7|8|9|10
 
 # companies, concerns...
 if	company	ClassName	M-FIRMA
-if	company	Case=Nom	ŠKODA|ČEZ|AGROFERT|Hyundai|Unipetrol|Lidl|RWE|Kaufland|Albert|FORTUNa
-if	company	Case=Gen	ŠKODy|ČEZu|AGROFERTu|Hyundaie|Unipetrolu|Lidlu|RWE|Kauflandu|Albertu|FORTUNy
-if	company	Case=Dat	ŠKODě|ČEZu|AGROFERTu|Hyundaii|Unipetrolu|Lidlu|RWE|Kauflandu|Albertu|FORTUNě
-if	company	Case=Acc	ŠKODu|ČEZ|AGROFERT|Hyundai|Unipetrol|Lidl|RWE|Kaufland|Albert|FORTUNu
-if	company	Case=Voc	ŠKODo|ČEZe|AGROFERTe|Hyundaii|Unipetrole|Lidle|RWE|Kauflande|Alberte|FORTUNo
-if	company	Case=Loc	ŠKODě|ČEZu|AGROFERTu|Hyundaii|Unipetrolu|Lidlu|RWE|Kauflandu|Albertu|FORTUNě
-if	company	Case=Ins	ŠKODou|ČEZem|AGROFERTem|Hyundaiem|Unipetrolem|Lidlem|RWE|Kauflandem|Albertem|FORTUNou
+if	company	Case=Nom	UniServis|UniTechna|UniLab|BravoTechna|BravoServis|MagniCent|ProfiTechna|ProfiLab|ProfiServis|VitaServis|VitaTechna
+if	company	Case=Gen	UniServisu|UniTechny|UniLabu|BravoTechny|BravoServisu|MagniCentu|ProfiTechny|ProfiLabu|ProfiServisu|VitaServisu|VitaTechny
+if	company	Case=Dat	UniServisu|UniTechně|UniLabu|BravoTechně|BravoServisu|MagniCentu|ProfiTechně|ProfiLabu|ProfiServisu|VitaServisu|VitaTechně
+if	company	Case=Acc	UniServis|UniTechnu|UniLab|BravoTechnu|BravoServis|MagniCent|ProfiTechnu|ProfiLab|ProfiServis|VitaServis|VitaTechnu
+if	company	Case=Voc	UniServise|UniTechno|UniLabe|BravoTechno|BravoServise|MagniCente|ProfiTechno|ProfiLabe|ProfiServise|VitaServise|VitaTechno
+if	company	Case=Loc	UniServisu|UniTechně|UniLabu|BravoTechně|BravoServisu|MagniCentu|ProfiTechně|ProfiLabu|ProfiServisu|VitaServisu|VitaTechně
+if	company	Case=Ins	UniServisem|UniTechnou|UniLabem|BravoTechnou|BravoServisem|MagniCentem|ProfiTechnou|ProfiLabem|ProfiServisem|VitaServisem|VitaTechnou
 
 # email address
 me	email	ClassName	M-EMAIL
