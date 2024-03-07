@@ -235,6 +235,26 @@
   }
 
 
+  function handleRandomizeChanged() {
+    //console.log("handleRandomizeChanged - entering the function");
+    var optionRandomize = document.getElementById('option_randomize');
+    if (optionRandomize.checked) {
+      var optionClasses = document.getElementById('option_classes');
+      optionClasses.checked = false;
+    }
+  }
+
+  function handleClassesChanged() {
+    //console.log("handleClassesChanged - entering the function");
+    var optionClasses = document.getElementById('option_classes');
+    if (optionClasses.checked) {
+      var optionRandomize = document.getElementById('option_randomize');
+      optionRandomize.checked = false;
+    }
+  }
+
+
+
 --></script>
 
 <div class="panel panel-info">
@@ -273,8 +293,8 @@
       <div class="form-group row">
         <label class="col-sm-2 control-label">Options:</label>
         <div class="col-sm-10">
-          <label title="Randomize the order of replacements" class="checkbox-inline" id="option_randomize_label"><input id="option_randomize" name="option_randomize" type="checkbox" checked/>Randomize replacements</label>
-          <label title="Use classes as replacements instead of fake names" class="checkbox-inline" id="option_classes_label"><input id="option_classes" name="option_classes" type="checkbox"/>Use classes as replacements</label>
+          <label title="Randomize the order of replacements" class="checkbox-inline" id="option_randomize_label"><input id="option_randomize" name="option_randomize" type="checkbox" checked onchange="handleRandomizeChanged();"/>Randomize replacements</label>
+          <label title="Use classes as replacements instead of fake names" class="checkbox-inline" id="option_classes_label"><input id="option_classes" name="option_classes" type="checkbox" onchange="handleClassesChanged();"/>Use classes as replacements</label>
         </div>
       </div>
     </div>
