@@ -1482,8 +1482,15 @@ If the last hidden node has SpaceAfter=No, it is set at the "root" node
 
 sub check_and_hide_multiword {
   my ($node, $class) = @_;
-  my @hidden_nodes = check_and_hide_multiword_recursive(attr($node, 'ord'), $node, $class);
+  my $id = attr($node, 'ord');
+  mylog(0, "check_and_hide_multiword: searching for dependent nodes of '" . attr($node, 'form') . "' with class '$class' as a part of a multiword.\n");
+  my @hidden_nodes = get_multiword_recursive($node, $class);
+  mylog(0, "check_and_hide_multiword: got " . scalar(@hidden_nodes) . " dependent nodes as a part of a multiword.\n");
   if (@hidden_nodes) {
+    foreach my $hidden_node (@hidden_nodes) {
+      mylog(0, "Hiding a multiword part " . attr($hidden_node, 'form') . "\n");
+      set_attr($hidden_node, 'hidden', $id); # hide the node
+    }
     my @sorted = sort {attr($a, 'ord') <=> attr($b, 'ord')} @hidden_nodes;
     my $last = $sorted[-1]; # the last of the hidden nodes
     my $SpaceAfter = get_misc_value($last, 'SpaceAfter') // '';
@@ -1500,19 +1507,31 @@ sub check_and_hide_multiword {
     }
   }
 }
-    
-sub check_and_hide_multiword_recursive {
-  my ($id, $node, $class) = @_;
+
+=item get_multiword_recursive
+
+Recursively, get all depending nodes that belong to the same multiword expression as the given node
+
+=cut
+
+sub get_multiword_recursive {
+  my ($node, $class) = @_;
   my @name_parts = ();
   my @recursive_name_parts = ();
+  mylog(0, "get_multiword_recursive: Entering the function with node '" . attr($node, 'form') . "' and class '$class'\n");
   if ($class eq 'gs') { # a street name
     @name_parts = grep {grep {/gs/} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case)/}
                   grep {attr($_, 'form') ne 'PSČ'}
                   $node->getAllChildren;
     foreach my $street_name_part (@name_parts) {
-      set_attr($street_name_part, 'hidden', $id);
-      mylog(0, "Hiding street name part " . attr($street_name_part, 'form') . "\n");
-      @recursive_name_parts = check_and_hide_multiword_recursive($id, $street_name_part, $class);
+      mylog(0, " - adding a street name part to a multiword: " . attr($street_name_part, 'form') . "\n");
+      my @puncts = grep {attr($_, 'deprel') eq 'punct'} $street_name_part->getAllChildren; # punctuation in street names (if it ever happend)
+      foreach my $punct (@puncts) {
+        mylog(0, " - adding a punctuation in streed name to a multiword: '" . attr($punct, 'form') . "'\n");
+      }
+      push(@name_parts, @puncts);
+      @recursive_name_parts = get_multiword_recursive($street_name_part, $class);
+      push(@name_parts, @recursive_name_parts);
     }
   }
   elsif ($class eq 'gu' or $class eq 'gq') { # a town / town part
@@ -1520,15 +1539,14 @@ sub check_and_hide_multiword_recursive {
                   grep {attr($_, 'form') ne 'PSČ'}
                   $node->getAllChildren;
     foreach my $town_name_part (@name_parts) {
-      set_attr($town_name_part, 'hidden', $id);
-      mylog(0, "Hiding town name part " . attr($town_name_part, 'form') . "\n");
+      mylog(0, " - adding a town name part to a multiword: " . attr($town_name_part, 'form') . "\n");
       my @puncts = grep {attr($_, 'deprel') eq 'punct'} $town_name_part->getAllChildren; # punctuation such as in "Praha 7 - Holešovice"
       foreach my $punct (@puncts) {
-        set_attr($punct, 'hidden', $id);
-        mylog(0, "Hiding punctuation in town name '" . attr($punct, 'form') . "'\n");
+        mylog(0, " - adding a punctuation in town name to a multiword: '" . attr($punct, 'form') . "'\n");
       }
       push(@name_parts, @puncts);
-      @recursive_name_parts = check_and_hide_multiword_recursive($id, $town_name_part, $class);
+      @recursive_name_parts = get_multiword_recursive($town_name_part, $class);
+      push(@name_parts, @recursive_name_parts);
     }
   }
   elsif ($class eq 'if') { # companies, concerns...
@@ -1536,34 +1554,31 @@ sub check_and_hide_multiword_recursive {
                   grep {attr($_, 'form') ne 'PSČ'}
                   $node->getAllChildren;
     foreach my $company_name_part (@name_parts) {
-      set_attr($company_name_part, 'hidden', $id);
-      mylog(0, "Hiding company name part " . attr($company_name_part, 'form') . "\n");
+      mylog(0, " - adding a company name part to a multiword: " . attr($company_name_part, 'form') . "\n");
       my @puncts = grep {attr($_, 'deprel') eq 'punct'} $company_name_part->getAllChildren; # punctuation
       foreach my $punct (@puncts) {
-        set_attr($punct, 'hidden', $id);
-        mylog(0, "Hiding punctuation in company name '" . attr($punct, 'form') . "'\n");
+        mylog(0, " - adding a punctuation in company name to a multiword: '" . attr($punct, 'form') . "'\n");
       }
       push(@name_parts, @puncts);
-      @recursive_name_parts = check_and_hide_multiword_recursive($id, $company_name_part, $class);
+      @recursive_name_parts = get_multiword_recursive($company_name_part, $class);
+      push(@name_parts, @recursive_name_parts);
     }
   }
   elsif ($class eq 'nr') { # a fake mark for agenda reference number (číslo jednací)
     @name_parts = grep {attr($_, 'upostag') eq 'NUM' and attr($_, 'deprel') eq 'compound'}
                   $node->getAllChildren;
     foreach my $name_part (@name_parts) {
-      set_attr($name_part, 'hidden', $id);
-      mylog(0, "Hiding agenda reference number part " . attr($name_part, 'form') . "\n");
+      mylog(0, " - adding an agenda reference number part to a multiword: " . attr($name_part, 'form') . "\n");
       my @puncts = grep {attr($_, 'deprel') eq 'punct'} $name_part->getAllChildren; # punctuation
       foreach my $punct (@puncts) {
-        set_attr($punct, 'hidden', $id);
-        mylog(0, "Hiding punctuation in agenda reference number '" . attr($punct, 'form') . "'\n");
+        mylog(0, " - adding a punctuation in agenda reference number to a multiword: '" . attr($punct, 'form') . "'\n");
       }
       push(@name_parts, @puncts);
-      @recursive_name_parts = check_and_hide_multiword_recursive($id, $name_part, $class);
+      @recursive_name_parts = get_multiword_recursive($name_part, $class);
+      push(@name_parts, @recursive_name_parts);
     }
   }
-  
-  push(@name_parts, @recursive_name_parts);
+  mylog(0, "get_multiword_recursive: returning list of size " . scalar(@name_parts) . "\n");  
   return @name_parts;
 }
 
@@ -1625,9 +1640,16 @@ sub get_replacement {
   
   my $lemma = attr($node, 'lemma') // '';
   my $form = attr($node, 'form') // '';
-  my $stem = get_stem_from_lemma($lemma);
+  
+  # we need to find replacement for the whole multiword expression, as the root may be the same but it may differ somewhere below it
+  my @multiword = get_multiword_recursive($node, $class);
+  push (@multiword, $node);
+  @multiword = sort {attr($a, 'ord') <=> attr($b, 'ord')} @multiword;
+  my @multiword_lemmas = map {attr($_, 'lemma')} @multiword;
+  my @multiword_stems = map {get_stem_from_lemma($_)} @multiword_lemmas;
+  my $stem = join('_', @multiword_stems);
 
-  mylog(0, "get_replacement: Looking for replacement for form '$form' and constraint '$constraint'.\n");
+  mylog(0, "get_replacement: Looking for replacement for form '$form' with multiword stem '$stem', class '$class' and constraint '$constraint'.\n");
 
   
 =item
