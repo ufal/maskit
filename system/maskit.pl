@@ -13,6 +13,7 @@ use POSIX qw(strftime); # naming a file with date and time
 use File::Basename;
 use Time::HiRes qw(gettimeofday tv_interval); # to measure how long the program ran
 use Sys::Hostname;
+use Email::Valid; # check if a string is an e-mail
 
 # STDIN and STDOUT in UTF-8
 binmode STDIN, ':encoding(UTF-8)';
@@ -21,7 +22,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.54 20240409'; # version of the program
+my $VER = '0.54 20240412'; # version of the program
 
 my @features = ('first names',
                 'surnames (male and female tied)',
@@ -839,6 +840,11 @@ sub get_NameTag_marks {
     }
   }
 
+  # e-mail (sometimes NameTag failed to recognize e-mails)
+  if ($marks !~ /\bme\b/ and is_email($node)) {
+    return 'me';
+  }
+
   # date of birth/death
   if (is_day_of_birth($node)) {
     return 'ta';
@@ -1007,6 +1013,23 @@ sub get_NE_values {
     @values = $ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g; # get an array of the classes
   }
   return @values;
+}
+
+
+=item
+
+Returns 1 if the node is an e-mail address (sometimes NameTag failed to recognize some e-mails).
+
+=cut
+
+sub is_email {
+  my $node = shift;
+  my $form = attr($node, 'form');
+  my $address = Email::Valid->address($form);
+  if ($address) {
+    return 1;
+  }
+  return 0;
 }
 
 
