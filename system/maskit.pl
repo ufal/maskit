@@ -845,6 +845,11 @@ sub get_NameTag_marks {
     return 'me';
   }
 
+  # underspecified personal names (p_) - for recall, we consider them surnames
+  if ($marks eq 'p_') {
+    return 'ps';
+  }
+
   # date of birth/death
   if (is_day_of_birth($node)) {
     return 'ta';
