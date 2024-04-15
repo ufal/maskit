@@ -524,7 +524,115 @@ if ($root) {
 
 
 ###########################################################################################
-# Now we have dependency trees of the sentences; let us search for phrases to be anonymized
+# Now we have dependency trees of the sentences
+# Let us find unrecognized instances of elswhere recognized named entities.
+# E.g., NameTag recognizes a named entity Novotná at one place but not at another. We will
+#       add the same NameTag mark to other instances of Novotná. Similarly for multiword
+#       named entities.
+###########################################################################################
+
+# First, we need a list (first instances of) recognized named entities; to unrecognized instantces,
+# we will later assign the same mark (the first one recognized).
+
+my %ne2node = (); # a key is a stemmed named entity (e.g., 'Novotn' for 'Novotná'), its value is the first correctly recognized node
+my %mne2nodes = (); # a key is a stemmed multiword named entity (e.g., 'průmyslov_zón_Šilheřovic' for 'průmyslová zóna Šilheřovice'), its value is an array of the entity's nodes
+
+mylog(1, "\n====================================================================\n");
+mylog(1, "Going to collect first instances of all recognized named entities.\n");
+
+foreach $root (@trees) {
+  # mylog(0, "\n====================================================================\n");
+  # mylog(0, "Sentence id=" . attr($root, 'id') . ": " . attr($root, 'text') . "\n");
+  # print_children($root, "\t");
+  
+  my @nodes = descendants($root);
+
+  foreach my $node (@nodes) {
+  
+    next if attr($node, 'skip'); # for skipping other nodes of multiword named entities
+
+    my @values = get_NE_values($node);
+    my $classes = join '~', @values;
+    next if !$classes;
+    
+    # tady možná to bude chtít profiltrovat jen pro některé typy named entities nebo jen pro lemmata určitého tvaru
+    # aby se třeba všechny předložky "od" nerozpoznaly jako "OD" - "obchodní dům"
+    
+    my @other_nodes = get_multiword_recursive($node, $classes);
+    if (@other_nodes) { # found a root of a multiword named entity
+      foreach my $other_node (@other_nodes) {
+        set_attr($other_node, 'skip', 1); # mark the other nodes so we will not process a partial multiword named entity later
+      }
+      push(@other_nodes, $node);
+      my $stem = get_multiword_stem_from_nodes(@other_nodes);
+      next if $mne2nodes{$stem}; # this is not the first recognized instance
+      $mne2nodes{$stem} = \@nodes;
+      mylog(0, "Found first instance of a multiword named entity with stem '$stem' and classes '$classes'\n");
+      
+    }
+    else { # a single-word named entity
+      my $lemma = attr($node, 'lemma') // '';
+      my $stem = get_stem_from_lemma($lemma);
+      next if $ne2node{$stem}; # this is not the first recognized instance
+      $ne2node{$stem} = $node;
+      mylog(0, "Found first instance of a single-node named entity with stem '$stem' and classes '$classes'\n");
+    }
+  }
+}
+
+mylog(1, "\n====================================================================\n");
+mylog(1, "Finished collecting first instances of all recognized named entities (found " . scalar(keys(%ne2node)) . " single-word entities and " . scalar(keys(%mne2nodes)) . " multiword entities).\n");
+
+
+# Second, we look for unrecognized instances of these named entities and add the same NameTag marks to them.
+
+%ne2node = (); # a key is a stemmed named entity (e.g., 'Novotn' for 'Novotná'), its value is the first correctly recognized node
+
+mylog(1, "\n====================================================================\n");
+mylog(1, "Searching for and marking unrecognized instances of elsewhere recognized named entities.\n");
+
+my $count = 0;
+
+foreach $root (@trees) {
+  # mylog(0, "\n====================================================================\n");
+  # mylog(0, "Sentence id=" . attr($root, 'id') . ": " . attr($root, 'text') . "\n");
+  # print_children($root, "\t");
+  
+  my @nodes = descendants($root);
+
+  foreach my $node (@nodes) {
+    my $classes = get_NameTag_marks($node) // '';
+    next if $classes; # this is recognized as some named entity (either by NameTag or by additional tests) 
+    
+    my $lemma = attr($node, 'lemma') // '';
+    my $stem = get_stem_from_lemma($lemma);
+    my $single_ne_node = $ne2node{$stem};
+    if ($single_ne_node) {
+      my @values = get_NE_values($single_ne_node);
+      @values = map {$_ . '_' . 100 + $count++} @values; # fake numbers of the named entities (start counting from 100)
+      my $adopted_classes = join '-', @values;
+      if ($adopted_classes) {
+        set_property($node, 'misc', 'NE', $adopted_classes);
+        mylog(0, "Setting adopted NE classes '$adopted_classes' for unrecognized single-word named entity with stem '$stem'\n");
+      }
+      else {
+        mylog(0, "Warning - not found NameTag marks for a recognized single-word named entity with stem $stem! This should not happen!\n");
+      }
+    }
+  
+  }
+}
+
+mylog(1, "\n====================================================================\n");
+mylog(1, "Finished searching for unrecognized instances of elsewhere recognized named entities (newly recognized single-word instances: $count).\n");
+
+
+###########################################################################################
+###########################################################################################
+#
+# MAIN LOOP: let us search for phrases to be anonymized
+#
+###########################################################################################
 ###########################################################################################
 
 my %group2next_index = ();
@@ -539,9 +647,12 @@ my $processing_time;
 my $sentences_count = scalar(@trees);
 my $tokens_count = 0;
 
+mylog(1, "\n====================================================================\n");
+mylog(1, "MAIN LOOP - going to anonymize the sentences.\n");
+
 foreach $root (@trees) {
-  mylog(1, "\n====================================================================\n");
-  mylog(1, "Sentence id=" . attr($root, 'id') . ": " . attr($root, 'text') . "\n");
+  mylog(0, "\n====================================================================\n");
+  mylog(0, "Sentence id=" . attr($root, 'id') . ": " . attr($root, 'text') . "\n");
   # print_children($root, "\t");
   
   my @nodes = descendants($root);
@@ -599,6 +710,9 @@ foreach $root (@trees) {
     }
   }  
 }
+
+mylog(1, "\n====================================================================\n");
+mylog(1, "Finished MAIN LOOP (anonymization done).\n");
 
 # print_log_tail();
 
@@ -1644,10 +1758,7 @@ sub get_replacement {
   # we need to find replacement for the whole multiword expression, as the root may be the same but it may differ somewhere below it
   my @multiword = get_multiword_recursive($node, $class);
   push (@multiword, $node);
-  @multiword = sort {attr($a, 'ord') <=> attr($b, 'ord')} @multiword;
-  my @multiword_lemmas = map {attr($_, 'lemma')} @multiword;
-  my @multiword_stems = map {get_stem_from_lemma($_)} @multiword_lemmas;
-  my $stem = join('_', @multiword_stems);
+  my $stem = get_multiword_stem_from_nodes(@multiword);
 
   mylog(0, "get_replacement: Looking for replacement for form '$form' with multiword stem '$stem', class '$class' and constraint '$constraint'.\n");
 
@@ -1740,6 +1851,16 @@ sub get_stem_from_lemma {
   $lemma =~ s/[rlkšs]$//; # Sedláček (Sedláčková), Orel (Orlová), Burger (Burgrová), Lukeš (Lukšová) etc.
   $lemma =~ s/e$//; # cont.
   return $lemma;
+}
+
+
+sub get_multiword_stem_from_nodes {
+  my @nodes = @_;
+  @nodes = sort {attr($a, 'ord') <=> attr($b, 'ord')} @nodes;
+  my @nodes_lemmas = map {attr($_, 'lemma')} @nodes;
+  my @nodes_stems = map {get_stem_from_lemma($_)} @nodes_lemmas;
+  my $stem = join('_', @nodes_stems);
+  return $stem;
 }
 
 
