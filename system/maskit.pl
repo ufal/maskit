@@ -22,7 +22,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.54 20240412'; # version of the program
+my $VER = '0.54 20240416'; # version of the program
 
 my @features = ('first names',
                 'surnames (male and female tied)',
@@ -40,6 +40,18 @@ my @features = ('first names',
                 'dates of birth/death',
                 'agenda reference numbers (čísla jednací)');
 
+my %supported_NameTag_classes = ('pf' => 1, # first names
+                                 'ps' => 1, # surnames
+                                 'at' => 1, # phone/fax numbers
+                                 'me' => 1, # e-mail address
+                                 'gs' => 1, # streets, squares
+                                 'ah' => 1, # street numbers
+                                 'gu' => 1, # cities/towns
+                                 'gq' => 1, # urban parts
+                                 'az' => 1, # zip codes
+                                 'if' => 1 # companies, concerns...
+                                );
+
 my $FEATS = join(' • ', @features); 
 
 my $DESC = "<h4>Categories handled in this MasKIT version:</h4>\n<ul>\n";
@@ -50,7 +62,7 @@ foreach my $feature (@features) {
 
 $DESC .= <<END_DESC;
 </ul>
-<h4>Categories NOT yet handled:</h4>
+<h4>Categories considered for future updates:</h4>
 <ul>
 <li>ID card numbers (čísla občanských průkazů)
 <li>driver licence numbers
@@ -303,7 +315,7 @@ my %class_constraint2replacements; # NameTag class + constraint => replacements 
 my %class_constraint2group; # grouping e.g. first names across cases and surnames across cases and genders together
 my %class2constraints; # which constraints does the class require (if any); the individual constraints are separated by '_'; an empty constraint is represented by 'NoConstraint'
 
-mylog(2, "Reading replacements from $replacements_file\n");
+mylog(1, "Reading replacements from $replacements_file\n");
 
 open (REPLACEMENTS, '<:encoding(utf8)', $replacements_file)
   or die "Could not open file '$replacements_file' for reading: $!";
@@ -329,19 +341,19 @@ while (<REPLACEMENTS>) {
     }
     $class_constraint2replacements{$class . '_' . $constraint} = $replacements;
     $class_constraint2group{$class . '_' . $constraint} = $group;
-    mylog(0, "Class $class with constraint $constraint, group $group and replacements $replacements\n");
+    #mylog(0, "Class $class with constraint $constraint, group $group and replacements $replacements\n");
     $replacements_count++;
     if ($class2constraints{$class}) { # if there already was a constraint for this class
-      mylog(0, "Note: multiple constraints for class $class.\n");
+      #mylog(0, "Note: multiple constraints for class $class.\n");
       $class2constraints{$class} .= "_";
     }
     $class2constraints{$class} .= $constraint;
   }
   else {
-    mylog(2, "Unknown format of a line in file $replacements_file:\n$line\n");
+    mylog(1, "Unknown format of a line in file $replacements_file:\n$line\n");
   }
 }
-mylog(2, "$replacements_count replacement rules have been read from file $replacements_file:\n");
+mylog(1, "$replacements_count replacement rules have been read from file $replacements_file:\n");
 
 close(REPLACEMENTS);
 
@@ -525,20 +537,19 @@ if ($root) {
 
 ###########################################################################################
 # Now we have dependency trees of the sentences
-# Let us find unrecognized instances of elswhere recognized named entities.
-# E.g., NameTag recognizes a named entity Novotná at one place but not at another. We will
-#       add the same NameTag mark to other instances of Novotná. Similarly for multiword
-#       named entities.
+# Let us find all marks for recognized single-word named entities.
+# Afterwards, we unify the marks if they differ for various instances.
+# E.g., ...
 ###########################################################################################
 
-# First, we need a list (first instances of) recognized named entities; to unrecognized instantces,
-# we will later assign the same mark (the first one recognized).
+# First, we need a list of marks for recognized single-word named entities and their counts.
 
-my %ne2node = (); # a key is a stemmed named entity (e.g., 'Novotn' for 'Novotná'), its value is the first correctly recognized node
-my %mne2nodes = (); # a key is a stemmed multiword named entity (e.g., 'průmyslov_zón_Šilheřovic' for 'průmyslová zóna Šilheřovice'), its value is an array of the entity's nodes
+my %lemma_utag2marks2count; # two-level hash mapping lemma_utag -> marks -> count
 
-mylog(1, "\n====================================================================\n");
-mylog(1, "Going to collect first instances of all recognized named entities.\n");
+mylog(1, "\n");
+mylog(1, "====================================================================\n");
+mylog(1, "Going to collect marks for all recognized single-word named entities.\n");
+mylog(1, "====================================================================\n");
 
 foreach $root (@trees) {
   # mylog(0, "\n====================================================================\n");
@@ -552,44 +563,79 @@ foreach $root (@trees) {
     next if attr($node, 'skip'); # for skipping other nodes of multiword named entities
 
     my @values = get_NE_values($node);
-    my $classes = join '~', @values;
-    next if !$classes;
+    my $marks = join '~', @values;
+    next if !$marks; # no named entity here
     
     # tady možná to bude chtít profiltrovat jen pro některé typy named entities nebo jen pro lemmata určitého tvaru
     # aby se třeba všechny předložky "od" nerozpoznaly jako "OD" - "obchodní dům"
+    my $upostag = attr($node, 'upostag') // 'noupostag';
+    next if $upostag !~ /^(NOUN|PROPN)$/;
     
-    my @other_nodes = get_multiword_recursive($node, $classes);
+    my @other_nodes = get_multiword_recursive($node, $marks);
     if (@other_nodes) { # found a root of a multiword named entity
+      set_attr($node, 'skip', 1); # mark the root of the multiword expr. so we will not mistake it later as a single-word named entity
       foreach my $other_node (@other_nodes) {
-        set_attr($other_node, 'skip', 1); # mark the other nodes so we will not process a partial multiword named entity later
+        set_attr($other_node, 'skip', 1); # mark the other nodes so we will not process a partial multiword named entity later and also not mistake them later as single-word named entities
       }
-      push(@other_nodes, $node);
-      my $stem = get_multiword_stem_from_nodes(@other_nodes);
-      next if $mne2nodes{$stem}; # this is not the first recognized instance
-      $mne2nodes{$stem} = \@nodes;
-      mylog(0, "Found first instance of a multiword named entity with stem '$stem' and classes '$classes'\n");
-      
+      next; # we do not work with multiword named entities here
     }
     else { # a single-word named entity
-      my $lemma = attr($node, 'lemma') // '';
-      my $stem = get_stem_from_lemma($lemma);
-      next if $ne2node{$stem}; # this is not the first recognized instance
-      $ne2node{$stem} = $node;
-      mylog(0, "Found first instance of a single-node named entity with stem '$stem' and classes '$classes'\n");
+      my $lemma = attr($node, 'lemma') // 'nolemma';
+      my $lemma_utag = $lemma . '_' . $upostag;
+      if (!$lemma_utag2marks2count{$lemma_utag}) { # create the second level of the hash if it does not yet exist
+        $lemma_utag2marks2count{$lemma_utag} = {};
+      }
+      $lemma_utag2marks2count{$lemma_utag}{$marks}++;
+      mylog(0, "Found an instance of a single-node named entity with lemma '$lemma', upostag '$upostag' and marks '$marks'; so far, " . $lemma_utag2marks2count{$lemma_utag}{$marks} . " same instances have been found.\n");
     }
   }
 }
 
-mylog(1, "\n====================================================================\n");
-mylog(1, "Finished collecting first instances of all recognized named entities (found " . scalar(keys(%ne2node)) . " single-word entities and " . scalar(keys(%mne2nodes)) . " multiword entities).\n");
+mylog(1, "\n");
+mylog(1, "====================================================================\n");
+mylog(1, "Finished collecting marks of all recognized single-word named entities.\n");
+mylog(1, "====================================================================\n");
+
+# Second, we choose best marks for each single-word named entity.
+# By 'best' we mean 'most often', and if the counts are the same, then we prefer classes that MasKIT supports.
+
+my %lemma_utag2bestmarks; # one-level hash mapping lemma_utag -> best marks
+
+foreach my $lemma_utag (keys(%lemma_utag2marks2count)) { # foreach lemma+upostag
+  my %marks2count = %{$lemma_utag2marks2count{$lemma_utag}};
+  # let us get the biggest count
+  my $max_count = 0;
+  foreach my $marks (keys(%marks2count)) {
+    my $count = $marks2count{$marks};
+    $max_count = $count if ($count > $max_count);
+    mylog(0, "$lemma_utag\t$marks\t$marks2count{$marks}\n");
+  }
+  mylog(0, " - max count for $lemma_utag: $max_count\n");
+  # now let us filter only marks with the biggest count:
+  my @marks_with_max_count = grep {$marks2count{$_} == $max_count} keys(%marks2count);
+  mylog(0, " - marks with max count: " . join(', ', @marks_with_max_count) . "\n");
+  # now let us filter only marks supported by MasKIT:
+  my @supported_marks = grep {is_supported($_)} @marks_with_max_count;
+  mylog(0, " - supported marks: " . join(', ', @supported_marks) . "\n");
+  my $best_marks = '';
+  if (@supported_marks) {
+    $best_marks = $supported_marks[0]; # for simplicity, we use the first one
+  }
+  elsif (@marks_with_max_count) {
+    $best_marks = $marks_with_max_count[0]; # do we really want this, i.e. an unsupported mark to propagate?
+  }
+  $lemma_utag2bestmarks{$lemma_utag} = $best_marks;
+  mylog(0, " - best marks: '$best_marks'\n");
+}
 
 
-# Second, we look for unrecognized instances of these named entities and add the same NameTag marks to them.
+# Second, we look for all instances of these named entities and change them to the best NameTag marks.
 
-%ne2node = (); # a key is a stemmed named entity (e.g., 'Novotn' for 'Novotná'), its value is the first correctly recognized node
 
-mylog(1, "\n====================================================================\n");
-mylog(1, "Searching for and marking unrecognized instances of elsewhere recognized named entities.\n");
+mylog(1, "\n");
+mylog(1, "====================================================================\n");
+mylog(1, "Unifying NameTag marks for all instances of single-word named entities.\n");
+mylog(1, "====================================================================\n");
 
 my $count = 0;
 
@@ -601,30 +647,38 @@ foreach $root (@trees) {
   my @nodes = descendants($root);
 
   foreach my $node (@nodes) {
-    my $classes = get_NameTag_marks($node) // '';
-    next if $classes; # this is recognized as some named entity (either by NameTag or by additional tests) 
+    next if attr($node, 'skip'); # let us skip all nodes of multiword named entities
+
+    my @values = get_NE_values($node);
+    my $marks = join '~', @values;
     
-    my $lemma = attr($node, 'lemma') // '';
-    my $stem = get_stem_from_lemma($lemma);
-    my $single_ne_node = $ne2node{$stem};
-    if ($single_ne_node) {
-      my @values = get_NE_values($single_ne_node);
-      @values = map {$_ . '_' . 100 + $count++} @values; # fake numbers of the named entities (start counting from 100)
-      my $adopted_classes = join '-', @values;
-      if ($adopted_classes) {
-        set_property($node, 'misc', 'NE', $adopted_classes);
-        mylog(0, "Setting adopted NE classes '$adopted_classes' for unrecognized single-word named entity with stem '$stem'\n");
+    my $upostag = attr($node, 'upostag') // 'noupostag';
+    next if $upostag !~ /^(NOUN|PROPN)$/;
+
+    my $lemma = attr($node, 'lemma') // 'nolemma';
+    my $lemma_utag = $lemma . '_' . $upostag;
+    my $best_marks = $lemma_utag2bestmarks{$lemma_utag};
+    next if !$best_marks; # no best marks for this lemma+upostag
+    
+    if ($best_marks ne $marks) {
+      my @marks = split('~', $best_marks);
+      my @values = map {$_ . '_' . (100 + $count++)} @marks; # fake numbers of the named entities (start counting from 100)
+      my $adopted_classes = join ('-', @values);
+      set_property($node, 'misc', 'NE', $adopted_classes);
+      if ($marks) { # we changed the previous value
+        mylog(0, "Changed marks for lemma $lemma and upostag $upostag from $marks to $adopted_classes\n");
       }
-      else {
-        mylog(0, "Warning - not found NameTag marks for a recognized single-word named entity with stem $stem! This should not happen!\n");
+      else { # we assigned marks to a token unrecognized by NameTag
+        mylog(0, "Set marks for lemma $lemma and upostag $upostag to $adopted_classes\n");      
       }
-    }
-  
+      $count++;
+    }  
   }
 }
 
 mylog(1, "\n====================================================================\n");
-mylog(1, "Finished searching for unrecognized instances of elsewhere recognized named entities (newly recognized single-word instances: $count).\n");
+mylog(1, "Finished unifying NameTag marks for all instances of single-word named entities (changed or newly assigned marks: $count).\n");
+mylog(1, "\n====================================================================\n");
 
 
 ###########################################################################################
@@ -647,13 +701,19 @@ my $processing_time;
 my $sentences_count = scalar(@trees);
 my $tokens_count = 0;
 
-mylog(1, "\n====================================================================\n");
+mylog(1, "\n");
+mylog(1, "====================================================================\n");
+mylog(1, "====================================================================\n");
 mylog(1, "MAIN LOOP - going to anonymize the sentences.\n");
+mylog(1, "====================================================================\n");
+mylog(1, "====================================================================\n");
 
 foreach $root (@trees) {
-  mylog(0, "\n====================================================================\n");
+  mylog(0, "\n");
+  mylog(0, "====================================================================\n");
   mylog(0, "Sentence id=" . attr($root, 'id') . ": " . attr($root, 'text') . "\n");
   # print_children($root, "\t");
+  mylog(0, "====================================================================\n");
   
   my @nodes = descendants($root);
   $tokens_count += scalar(@nodes) - 1; # without the root
@@ -675,7 +735,8 @@ foreach $root (@trees) {
 
     next if !$classes; # no NameTag class found here
 
-    mylog(0, "\nProcessing form '$form' (lemma '$lemma') with NameTag classes '$classes' and feats '$feats'\n");
+    mylog(0, "\n");
+    mylog(0, "Processing form '$form' (lemma '$lemma') with NameTag classes '$classes' and feats '$feats'\n");
 
     foreach my $class (split('~', $classes)) {
     
@@ -710,9 +771,11 @@ foreach $root (@trees) {
     }
   }  
 }
-
-mylog(1, "\n====================================================================\n");
+mylog(1, "\n");
+mylog(1, "====================================================================\n");
 mylog(1, "Finished MAIN LOOP (anonymization done).\n");
+mylog(1, "====================================================================\n");
+mylog(1, "\n");
 
 # print_log_tail();
 
@@ -795,47 +858,47 @@ sub check_constraint {
 
   my $feats = attr($node, 'feats') // '';
   my $form = attr($node, 'form') // '';
-  mylog(0, "check_constraint: checking constraint '$constraint' against form '$form' and feats '$feats'\n");
+  # mylog(0, "check_constraint: checking constraint '$constraint' against form '$form' and feats '$feats'\n");
 
   my @a_constraints = split('\|', $constraint); # get the individul features
   foreach my $feature (@a_constraints) {
-    mylog(0, " - checking if '$feature' matches\n");
+    # mylog(0, " - checking if '$feature' matches\n");
     if ($feature =~ /^length([<=>])(\d+)$/) {
       my ($operator, $value) = ($1, $2);
       my $length = length($form);
-      mylog(0, "     - checking length comparison: '$length $operator $value'\n");
+      # mylog(0, "     - checking length comparison: '$length $operator $value'\n");
       if ($operator eq '=') {
         if ($length != $value) {
-          mylog(0, "   - constraint $feature not matching; returning 0\n");
+          # mylog(0, "   - constraint $feature not matching; returning 0\n");
           return 0;
         }
       }
       elsif ($operator eq '>') {
         if ($length <= $value) {
-          mylog(0, "   - constraint $feature not matching; returning 0\n");
+          # mylog(0, "   - constraint $feature not matching; returning 0\n");
           return 0;
         }
       }
       elsif ($operator eq '<') {
         if ($length >= $value) {
-          mylog(0, "   - constraint $feature not matching; returning 0\n");
+          # mylog(0, "   - constraint $feature not matching; returning 0\n");
           return 0;
         }
       }
     }
     elsif ($feature eq 'ClassName') {
       if (!$replace_with_classes) {
-        mylog(0, "   - constraint $feature not matching; returning 0\n");
+        # mylog(0, "   - constraint $feature not matching; returning 0\n");
         return 0;
       }
     }
     elsif ($feats !~ /\b$feature\b/) {
-      mylog(0, "   - constraint $feature not matching; returning 0\n");
+      # mylog(0, "   - constraint $feature not matching; returning 0\n");
       return 0;
     }
-    mylog(0, "   - constraint $feature matches\n");
+    # mylog(0, "   - constraint $feature matches\n");
   }
-  mylog(0, " - OK, all features matched, the constraint matches.\n");
+  # mylog(0, " - OK, all features matched, the constraint matches.\n");
   return 1;
 }
 
@@ -1132,6 +1195,24 @@ sub get_NE_values {
     @values = $ne =~ /([A-Za-z][a-z_]?)_[0-9]+/g; # get an array of the classes
   }
   return @values;
+}
+
+
+=item is_supported
+
+Checks if there is a supported NameTag mark among the given marks string (e.g., 'P~pf')
+
+=cut
+
+sub is_supported {
+  my $marks = shift;
+  my @single_marks = split('~', $marks);
+  foreach my $single_mark (@single_marks) {
+    if ($supported_NameTag_classes{$single_mark}) {
+      return 1;
+    }
+  }
+  return 0;
 }
 
 
@@ -1632,16 +1713,16 @@ sub get_multiword_recursive {
   my ($node, $class) = @_;
   my @name_parts = ();
   my @recursive_name_parts = ();
-  mylog(0, "get_multiword_recursive: Entering the function with node '" . attr($node, 'form') . "' and class '$class'\n");
+  #mylog(0, "get_multiword_recursive: Entering the function with node '" . attr($node, 'form') . "' and class '$class'\n");
   if ($class eq 'gs') { # a street name
-    @name_parts = grep {grep {/gs/} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case)/}
+    @name_parts = grep {grep {/gs/} grep {defined} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case)/}
                   grep {attr($_, 'form') ne 'PSČ'}
                   $node->getAllChildren;
     foreach my $street_name_part (@name_parts) {
-      mylog(0, " - adding a street name part to a multiword: " . attr($street_name_part, 'form') . "\n");
+      #mylog(0, " - adding a street name part to a multiword: " . attr($street_name_part, 'form') . "\n");
       my @puncts = grep {attr($_, 'deprel') eq 'punct'} $street_name_part->getAllChildren; # punctuation in street names (if it ever happend)
       foreach my $punct (@puncts) {
-        mylog(0, " - adding a punctuation in streed name to a multiword: '" . attr($punct, 'form') . "'\n");
+        #mylog(0, " - adding a punctuation in streed name to a multiword: '" . attr($punct, 'form') . "'\n");
       }
       push(@name_parts, @puncts);
       @recursive_name_parts = get_multiword_recursive($street_name_part, $class);
@@ -1649,29 +1730,29 @@ sub get_multiword_recursive {
     }
   }
   elsif ($class eq 'gu' or $class eq 'gq') { # a town / town part
-    @name_parts = grep {grep {/(gu|gq)/} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/}
+    @name_parts = grep {grep {/(gu|gq)/} grep {defined} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/}
                   grep {attr($_, 'form') ne 'PSČ'}
                   $node->getAllChildren;
     foreach my $town_name_part (@name_parts) {
-      mylog(0, " - adding a town name part to a multiword: " . attr($town_name_part, 'form') . "\n");
+      #mylog(0, " - adding a town name part to a multiword: " . attr($town_name_part, 'form') . "\n");
       my @puncts = grep {attr($_, 'deprel') eq 'punct'} $town_name_part->getAllChildren; # punctuation such as in "Praha 7 - Holešovice"
       foreach my $punct (@puncts) {
-        mylog(0, " - adding a punctuation in town name to a multiword: '" . attr($punct, 'form') . "'\n");
+        #mylog(0, " - adding a punctuation in town name to a multiword: '" . attr($punct, 'form') . "'\n");
       }
       push(@name_parts, @puncts);
       @recursive_name_parts = get_multiword_recursive($town_name_part, $class);
       push(@name_parts, @recursive_name_parts);
     }
   }
-  elsif ($class eq 'if') { # companies, concerns...
-    @name_parts = grep {grep {/(if)/} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/}
+  elsif ($class eq 'if' or $class eq 'io' or $class eq 'ic') { # companies, concerns... or government/political inst. or cult./educ./scient. inst.
+    @name_parts = grep {grep {/(if|io|ic)/} grep {defined} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/}
                   grep {attr($_, 'form') ne 'PSČ'}
                   $node->getAllChildren;
     foreach my $company_name_part (@name_parts) {
-      mylog(0, " - adding a company name part to a multiword: " . attr($company_name_part, 'form') . "\n");
+      #mylog(0, " - adding a company or institution part to a multiword: " . attr($company_name_part, 'form') . "\n");
       my @puncts = grep {attr($_, 'deprel') eq 'punct'} $company_name_part->getAllChildren; # punctuation
       foreach my $punct (@puncts) {
-        mylog(0, " - adding a punctuation in company name to a multiword: '" . attr($punct, 'form') . "'\n");
+        #mylog(0, " - adding a punctuation in company or institution to a multiword: '" . attr($punct, 'form') . "'\n");
       }
       push(@name_parts, @puncts);
       @recursive_name_parts = get_multiword_recursive($company_name_part, $class);
@@ -1682,17 +1763,17 @@ sub get_multiword_recursive {
     @name_parts = grep {attr($_, 'upostag') eq 'NUM' and attr($_, 'deprel') eq 'compound'}
                   $node->getAllChildren;
     foreach my $name_part (@name_parts) {
-      mylog(0, " - adding an agenda reference number part to a multiword: " . attr($name_part, 'form') . "\n");
+      #mylog(0, " - adding an agenda reference number part to a multiword: " . attr($name_part, 'form') . "\n");
       my @puncts = grep {attr($_, 'deprel') eq 'punct'} $name_part->getAllChildren; # punctuation
       foreach my $punct (@puncts) {
-        mylog(0, " - adding a punctuation in agenda reference number to a multiword: '" . attr($punct, 'form') . "'\n");
+        #mylog(0, " - adding a punctuation in agenda reference number to a multiword: '" . attr($punct, 'form') . "'\n");
       }
       push(@name_parts, @puncts);
       @recursive_name_parts = get_multiword_recursive($name_part, $class);
       push(@name_parts, @recursive_name_parts);
     }
   }
-  mylog(0, "get_multiword_recursive: returning list of size " . scalar(@name_parts) . "\n");  
+  #mylog(0, "get_multiword_recursive: returning list of size " . scalar(@name_parts) . "\n");  
   return @name_parts;
 }
 
