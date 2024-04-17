@@ -103,6 +103,7 @@ gq	urban_part_number	NumForm=Digit	1|2|3|4|5|6|7|8|9|10
 
 # companies, concerns...
 if	company	ClassName	M-FIRMA
+if	company	Abbr=Yes	FABBR1|FABBR2|FABBR3|FABBR4|FABBR5|FABBR6|FABBR7|FABBR8|FABBR9|FABBR10
 if	company	Case=Nom	UniServis|UniTechna|UniLab|BravoTechna|BravoServis|MagniCent|ProfiTechna|ProfiLab|ProfiServis|VitaServis|VitaTechna
 if	company	Case=Gen	UniServisu|UniTechny|UniLabu|BravoTechny|BravoServisu|MagniCentu|ProfiTechny|ProfiLabu|ProfiServisu|VitaServisu|VitaTechny
 if	company	Case=Dat	UniServisu|UniTechně|UniLabu|BravoTechně|BravoServisu|MagniCentu|ProfiTechně|ProfiLabu|ProfiServisu|VitaServisu|VitaTechně
@@ -110,6 +111,28 @@ if	company	Case=Acc	UniServis|UniTechnu|UniLab|BravoTechnu|BravoServis|MagniCent
 if	company	Case=Voc	UniServise|UniTechno|UniLabe|BravoTechno|BravoServise|MagniCente|ProfiTechno|ProfiLabe|ProfiServise|VitaServise|VitaTechno
 if	company	Case=Loc	UniServisu|UniTechně|UniLabu|BravoTechně|BravoServisu|MagniCentu|ProfiTechně|ProfiLabu|ProfiServisu|VitaServisu|VitaTechně
 if	company	Case=Ins	UniServisem|UniTechnou|UniLabem|BravoTechnou|BravoServisem|MagniCentem|ProfiTechnou|ProfiLabem|ProfiServisem|VitaServisem|VitaTechnou
+
+# government/political inst.
+io	agency	ClassName	M-AGENTURA
+io	agency	Abbr=Yes	AABBR1|AABBR2|AABBR3|AABBR4
+io	agency	Case=Nom	UniAgentura|ProfiAgentura|BravoAgentura|ParloAgentura
+io	agency	Case=Gen	UniAgentury|ProfiAgentury|BravoAgentury|ParloAgentury
+io	agency	Case=Dat	UniAgentuře|ProfiAgentuře|BravoAgentuře|ParloAgentuře
+io	agency	Case=Acc	UniAgenturu|ProfiAgenturu|BravoAgenturu|ParloAgenturu
+io	agency	Case=Voc	UniAgenturo|ProfiAgenturo|BravoAgenturo|ParloAgenturo
+io	agency	Case=Loc	UniAgentuře|ProfiAgentuře|BravoAgentuře|ParloAgentuře
+io	agency	Case=Ins	UniAgenturou|ProfiAgenturou|BravoAgenturou|ParloAgenturou
+
+# cult./educ./scient. inst.
+ic	institute	ClassName	M-INSTITUCE
+ic	institute	Abbr=Yes	IABBR1|IABBR2|IABBR3|IABBR4|IABBR5
+ic	institute	Case=Nom	UniInstituce|ProfiInstituce|BravoInstituce|EduInstituce|KultoInstituce
+ic	institute	Case=Gen	UniInstituce|ProfiInstituce|BravoInstituce|EduInstituce|KultoInstituce
+ic	institute	Case=Dat	UniInstituci|ProfiInstituci|BravoInstituci|EduInstituci|KultoInstituci
+ic	institute	Case=Acc	UniInstituci|ProfiInstituci|BravoInstituci|EduInstituci|KultoInstituci
+ic	institute	Case=Voc	UniInstituce|ProfiInstituce|BravoInstituce|EduInstituce|KultoInstituce
+ic	institute	Case=Loc	UniInstituci|ProfiInstituci|BravoInstituci|EduInstituci|KultoInstituci
+ic	institute	Case=Ins	UniInstitucí|ProfiInstitucí|BravoInstitucí|EduInstitucí|KultoInstitucí´
 
 # email address
 me	email	ClassName	M-EMAIL

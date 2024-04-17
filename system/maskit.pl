@@ -22,7 +22,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.54 20240416'; # version of the program
+my $VER = '0.54 20240417'; # version of the program
 
 my @features = ('first names',
                 'surnames (male and female tied)',
@@ -33,6 +33,8 @@ my @features = ('first names',
                 'town/town part names (incl. multiword)',
                 'ZIP codes',
                 'company names (incl. multiword)',
+                'government/political agencies (incl. multiword)',
+                'cult./educ./scient. institutions (incl. multiword)',
                 'commercial register number (IČO)',
                 'tax register number (DIČ)',
                 'land registration numbers (registrační čísla pozemků)',
@@ -49,7 +51,9 @@ my %supported_NameTag_classes = ('pf' => 1, # first names
                                  'gu' => 1, # cities/towns
                                  'gq' => 1, # urban parts
                                  'az' => 1, # zip codes
-                                 'if' => 1 # companies, concerns...
+                                 'if' => 1, # companies, concerns...
+                                 'io' => 1, # government/political inst.
+                                 'ic' => 1 # cult./educ./scient. inst.
                                 );
 
 my $FEATS = join(' • ', @features); 
