@@ -22,11 +22,11 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.54 20240417'; # version of the program
+my $VER = '0.54 20240419'; # version of the program
 
 my @features = ('first names',
                 'surnames (male and female tied)',
-                'phone numbers',
+                'phone numbers (non-emergency)',
                 'e-mails',
                 'street names (incl. multiword)',
                 'street numbers',
@@ -1100,6 +1100,13 @@ sub get_NameTag_marks {
     }
   }
 
+  # let us not replace emergency phone numbers
+  if ($marks =~ /\bat\b/ and $lemma =~ /^(112|15[0568])$/) {
+    $marks =~ s/^at~//;
+    $marks =~ s/~at\b//;
+    $marks =~ s/^at$//;
+  }
+    
   if (!$marks) {
     return undef;
   }
