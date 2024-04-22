@@ -407,7 +407,7 @@ my $conll_segmented = call_udpipe($input_content, 'segment');
 
 my $conll_data = call_udpipe($conll_segmented, 'parse');
 
-# Store the result to a file (just to have it, not needed for further processing)
+# Store the result to a file (for debugging, not needed for further processing)
 #  open(OUT, '>:encoding(utf8)', "$input_file.conll") or die "Cannot open file '$input_file.conll' for writing: $!";
 #  print OUT $conll_data;
 #  close(OUT);
@@ -418,7 +418,7 @@ my $conll_data = call_udpipe($conll_segmented, 'parse');
 
 my $conll_data_ne = call_nametag($conll_data);
 
-# Store the result to a file (just to have it, not needed for further processing)
+# Store the result to a file (for debugging, not needed for further processing)
 #  open(OUT, '>:encoding(utf8)', "$input_file.conllne") or die "Cannot open file '$input_file.conllne' for writing: $!";
 #  print OUT $conll_data_ne;
 #  close(OUT);
@@ -537,6 +537,12 @@ if ($root) {
 }
 # end of Jan Štěpánek's modified cycle for reading UD CONLL
 
+
+# Export the parsed trees to a file (for debugging, not needed for further processing)
+#  open(OUT, '>:encoding(utf8)', "$input_file.export.conllu") or die "Cannot open file '$input_file.export.conllu' for writing: $!";
+#  my $conll_export = get_output('conllu');
+#  print OUT $conll_export;
+#  close(OUT);
 
 
 ###########################################################################################
@@ -680,9 +686,17 @@ foreach $root (@trees) {
   }
 }
 
-mylog(1, "\n====================================================================\n");
+mylog(1, "\n");
+mylog(1, "====================================================================\n");
 mylog(1, "Finished unifying NameTag marks for all instances of single-word named entities (changed or newly assigned marks: $count).\n");
-mylog(1, "\n====================================================================\n");
+mylog(1, "====================================================================\n");
+
+
+# Export the modified trees to a file (for debugging, not needed for further processing)
+  open(OUT, '>:encoding(utf8)', "$input_file.export_unif.conllu") or die "Cannot open file '$input_file.export_unif.conllu' for writing: $!";
+  my $conll_unif_export = get_output('conllu');
+  print OUT $conll_unif_export;
+  close(OUT);
 
 
 ###########################################################################################
@@ -1728,6 +1742,9 @@ sub get_multiword_recursive {
   if ($class eq 'gs') { # a street name
     @name_parts = grep {grep {/gs/} grep {defined} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case)/}
                   grep {attr($_, 'form') ne 'PSČ'}
+                  grep {attr($_, 'form') ne 'IČO'}
+                  grep {attr($_, 'form') ne 'IČ'}
+                  grep {attr($_, 'form') ne 'DIČ'}
                   $node->getAllChildren;
     foreach my $street_name_part (@name_parts) {
       #mylog(0, " - adding a street name part to a multiword: " . attr($street_name_part, 'form') . "\n");
@@ -1743,6 +1760,9 @@ sub get_multiword_recursive {
   elsif ($class eq 'gu' or $class eq 'gq') { # a town / town part
     @name_parts = grep {grep {/(gu|gq)/} grep {defined} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/}
                   grep {attr($_, 'form') ne 'PSČ'}
+                  grep {attr($_, 'form') ne 'IČO'}
+                  grep {attr($_, 'form') ne 'IČ'}
+                  grep {attr($_, 'form') ne 'DIČ'}
                   $node->getAllChildren;
     foreach my $town_name_part (@name_parts) {
       #mylog(0, " - adding a town name part to a multiword: " . attr($town_name_part, 'form') . "\n");
@@ -1758,6 +1778,9 @@ sub get_multiword_recursive {
   elsif ($class eq 'if' or $class eq 'io' or $class eq 'ic') { # companies, concerns... or government/political inst. or cult./educ./scient. inst.
     @name_parts = grep {grep {/(if|io|ic)/} grep {defined} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/}
                   grep {attr($_, 'form') ne 'PSČ'}
+                  grep {attr($_, 'form') ne 'IČO'}
+                  grep {attr($_, 'form') ne 'IČ'}
+                  grep {attr($_, 'form') ne 'DIČ'}
                   $node->getAllChildren;
     foreach my $company_name_part (@name_parts) {
       #mylog(0, " - adding a company or institution part to a multiword: " . attr($company_name_part, 'form') . "\n");
