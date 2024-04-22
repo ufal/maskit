@@ -33,7 +33,7 @@ my @features = ('first names',
                 'town/town part names (incl. multiword)',
                 'ZIP codes',
                 'company names (incl. multiword)',
-                'government/political agencies (incl. multiword)',
+                #'government/political agencies (incl. multiword)',
                 'cult./educ./scient. institutions (incl. multiword)',
                 'commercial register number (IČO)',
                 'tax register number (DIČ)',
@@ -52,7 +52,7 @@ my %supported_NameTag_classes = ('pf' => 1, # first names
                                  'gq' => 1, # urban parts
                                  'az' => 1, # zip codes
                                  'if' => 1, # companies, concerns...
-                                 'io' => 1, # government/political inst.
+                                 #'io' => 1, # government/political inst.
                                  'ic' => 1 # cult./educ./scient. inst.
                                 );
 
@@ -962,11 +962,17 @@ sub get_NameTag_marks {
     $parent_lemma = attr($parent, 'lemma') // '';
   }
 
+=item
+
+  # not needed, as 'io' are not anonymized in general
+
   # do not anonymize 'soud' in spite of being 'io'; the same goes for its 'io' dependants ('okresní' soud)
   if ($marks =~ /\bio\b/ and is_part_of_lemma_and_class($node, 'soud', 'io')) { # if the node is 'io' and (either is 'soud' or depends (via 'io' nodes) on 'soud') 
     $marks = remove_from_marks_string($marks, 'io');
   }
-  
+
+=cut
+
   # Birth registration number
   if (is_birth_number_part1($node)) {
     return 'nx'; # fake mark for firt part of birth registration number
@@ -1821,7 +1827,7 @@ sub get_multiword_recursive {
       push(@name_parts, @recursive_name_parts);
     }
   }
-  elsif ($class eq 'if' or $class eq 'io' or $class eq 'ic') { # companies, concerns... or government/political inst. or cult./educ./scient. inst.
+  elsif ($class eq 'if' or $class eq 'ic') { # companies, concerns... or government/political inst. or cult./educ./scient. inst.
     @name_parts = grep {grep {/(if|io|ic)/} grep {defined} get_NE_values($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/}
                   grep {attr($_, 'form') ne 'PSČ'}
                   grep {attr($_, 'form') ne 'IČO'}
