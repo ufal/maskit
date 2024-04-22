@@ -961,6 +961,11 @@ sub get_NameTag_marks {
   if ($parent) {
     $parent_lemma = attr($parent, 'lemma') // '';
   }
+
+  # do not anonymize 'soud' in spite of being 'io'; the same goes for its 'io' dependants ('okresní' soud)
+  if ($marks =~ /\bio\b/ and is_part_of_lemma_and_class($node, 'soud', 'io')) { # if the node is 'io' and (either is 'soud' or depends (via 'io' nodes) on 'soud') 
+    $marks = remove_from_marks_string($marks, 'io');
+  }
   
   # Birth registration number
   if (is_birth_number_part1($node)) {
@@ -1124,6 +1129,47 @@ sub get_NameTag_marks {
   if (!$marks) {
     return undef;
   }
+  return $marks;
+}
+
+
+=item is_part_of_lemma_and_class
+
+Checks if the node is the given NameTag class and (either is the given lemma or depends (recursively via the same class nodes) on the given lemma). 
+
+=cut
+
+sub is_part_of_lemma_and_class {
+  my ($node, $lemma, $class) = @_;
+  my $node_lemma = attr($node, 'lemma') // '';
+  my @values = get_NE_values($node);
+  my $marks = join '~', @values;
+  if ($marks !~ /\b$class\b/) {
+    return 0;
+  }
+  if ($lemma eq $node_lemma) {
+    return 1;
+  }
+  my $parent = $node->getParent;
+  if (!$parent) {
+    return 0;
+  }
+  return is_part_of_lemma_and_class($parent, $lemma, $class);
+}
+
+
+=item remove_from_marks_string
+
+From a string of NameTag marks (e.g., 'io~gu', it removes the given mark (e.g., 'io') and returns the rest of the marks (e.g., 'gu').
+
+=cut
+
+sub remove_from_marks_string {
+  my ($marks, $remove) = @_;
+  return $marks if !$marks or !$remove;
+  $marks =~ s/^$remove~//;
+  $marks =~ s/~$remove//;
+  $marks =~ s/$remove//;
   return $marks;
 }
 
