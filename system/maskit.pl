@@ -696,10 +696,10 @@ mylog(1, "====================================================================\n
 
 
 # Export the modified trees to a file (for debugging, not needed for further processing)
-  open(OUT, '>:encoding(utf8)', "$input_file.export_unif.conllu") or die "Cannot open file '$input_file.export_unif.conllu' for writing: $!";
-  my $conll_unif_export = get_output('conllu');
-  print OUT $conll_unif_export;
-  close(OUT);
+#  open(OUT, '>:encoding(utf8)', "$input_file.export_unif.conllu") or die "Cannot open file '$input_file.export_unif.conllu' for writing: $!";
+#  my $conll_unif_export = get_output('conllu');
+#  print OUT $conll_unif_export;
+#  close(OUT);
 
 
 ###########################################################################################
