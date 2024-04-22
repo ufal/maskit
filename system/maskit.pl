@@ -555,6 +555,7 @@ if ($root) {
 # First, we need a list of marks for recognized single-word named entities and their counts.
 
 my %lemma_utag2marks2count; # two-level hash mapping lemma_utag -> marks -> count
+my %exclude_from_unification = ('společnost' => 1);
 
 mylog(1, "\n");
 mylog(1, "====================================================================\n");
@@ -571,6 +572,9 @@ foreach $root (@trees) {
   foreach my $node (@nodes) {
   
     next if attr($node, 'skip'); # for skipping other nodes of multiword named entities
+
+    my $lemma = attr($node, 'lemma') // 'nolemma';
+    next if $exclude_from_unification{$lemma};
 
     my @values = get_NE_values($node);
     my $marks = join '~', @values;
@@ -590,7 +594,6 @@ foreach $root (@trees) {
       next; # we do not work with multiword named entities here
     }
     else { # a single-word named entity
-      my $lemma = attr($node, 'lemma') // 'nolemma';
       my $lemma_utag = $lemma . '_' . $upostag;
       if (!$lemma_utag2marks2count{$lemma_utag}) { # create the second level of the hash if it does not yet exist
         $lemma_utag2marks2count{$lemma_utag} = {};
