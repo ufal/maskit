@@ -22,10 +22,10 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.54 20240422'; # version of the program
+my $VER = '0.54 20240425'; # version of the program
 
-my @features = ('first names',
-                'surnames (male and female tied)',
+my @features = ('first names (not judges)',
+                'surnames (not judges, male and female tied)',
                 'phone numbers (non-emergency)',
                 'e-mails',
                 'street names (incl. multiword)',
@@ -696,10 +696,10 @@ mylog(1, "====================================================================\n
 
 
 # Export the modified trees to a file (for debugging, not needed for further processing)
-#  open(OUT, '>:encoding(utf8)', "$input_file.export_unif.conllu") or die "Cannot open file '$input_file.export_unif.conllu' for writing: $!";
-#  my $conll_unif_export = get_output('conllu');
-#  print OUT $conll_unif_export;
-#  close(OUT);
+  open(OUT, '>:encoding(utf8)', "$input_file.export_unif.conllu") or die "Cannot open file '$input_file.export_unif.conllu' for writing: $!";
+  my $conll_unif_export = get_output('conllu');
+  print OUT $conll_unif_export;
+  close(OUT);
 
 
 ###########################################################################################
@@ -976,6 +976,13 @@ sub get_NameTag_marks {
 
 =cut
 
+  # do not anonymize names of judges, despite being 'pf'/'ps'
+  if ($marks =~ /\b(pf|ps)\b/ and is_child_of_lemma_regexp_and_class_regexp($node, '^(soudce|soudkyně|samosoudce|samosoudkyně)$', '')) { # no condition on NameTag class for the parent
+    my $type = $1;
+    $marks = remove_from_marks_string($marks, $1);
+    mylog(0, "Removing mark '$type' from a judge name '$lemma'\n"); 
+  }
+
   # Birth registration number
   if (is_birth_number_part1($node)) {
     return 'nx'; # fake mark for firt part of birth registration number
@@ -1164,6 +1171,29 @@ sub is_part_of_lemma_and_class {
     return 0;
   }
   return is_part_of_lemma_and_class($parent, $lemma, $class);
+}
+
+
+=item is_part_of_lemma_r´egexp_and_class_regexp
+
+Checks if the node is a child of a node with the given lemma and NameTag class (the class given as regexp). 
+
+=cut
+
+sub is_child_of_lemma_regexp_and_class_regexp {
+  my ($node, $lemma_regexp, $class_regexp) = @_;
+  my $parent = $node->getParent;
+  return 0 if !$parent;
+  my $parent_lemma = attr($parent, 'lemma') // '';
+  if ($lemma_regexp and $parent_lemma !~ $lemma_regexp) {
+    return 0;
+  }
+  my @values = get_NE_values($parent);
+  my $marks = join '~', @values;
+  if ($class_regexp and $marks !~ $class_regexp) {
+    return 0;
+  }
+  return 1;
 }
 
 
