@@ -696,10 +696,10 @@ mylog(1, "====================================================================\n
 
 
 # Export the modified trees to a file (for debugging, not needed for further processing)
-  open(OUT, '>:encoding(utf8)', "$input_file.export_unif.conllu") or die "Cannot open file '$input_file.export_unif.conllu' for writing: $!";
-  my $conll_unif_export = get_output('conllu');
-  print OUT $conll_unif_export;
-  close(OUT);
+#  open(OUT, '>:encoding(utf8)', "$input_file.export_unif.conllu") or die "Cannot open file '$input_file.export_unif.conllu' for writing: $!";
+#  my $conll_unif_export = get_output('conllu');
+#  print OUT $conll_unif_export;
+#  close(OUT);
 
 
 ###########################################################################################
@@ -1363,8 +1363,17 @@ sub is_day_of_birth {
         return 0 if !$grandparent;
         my $grandparent_form = attr($grandparent, 'form') // '';
         my $grandparent_lemma = attr($grandparent, 'lemma') // '';
-        if ($grandparent_lemma =~ /^(narozený)$/ or $grandparent_form =~ /^(nar|n)$/) {
+        if ($grandparent_lemma =~ /^(narozený|narodit)$/ or $grandparent_form =~ /^(nar|n)$/) {
           return 1;
+        }
+        if ($grandparent_lemma =~ /^(den)$/) {
+          my $greatgrandparent = $grandparent->getParent;
+          return 0 if !$greatgrandparent;
+          my $greatgrandparent_form = attr($greatgrandparent, 'form') // '';
+          my $greatgrandparent_lemma = attr($greatgrandparent, 'lemma') // '';
+          if ($greatgrandparent_lemma =~ /^(narozený|narodit)$/ or $greatgrandparent_form =~ /^(nar|n)$/) {
+            return 1;
+          }        
         }
       }
     }
@@ -1386,12 +1395,25 @@ sub is_month_of_birth {
     return 0 if !$parent;
     my $parent_form = attr($parent, 'form');
     my $parent_lemma = attr($parent, 'lemma') // '';
-    if ($parent_lemma =~ /^(narozený)$/ or $parent_form =~ /^(nar|n)$/) {
+    if ($parent_lemma =~ /^(narozený|narodit)$/ or $parent_form =~ /^(nar|n)$/) {
       my @year_sons = grep {attr($_, 'form') =~ /^[12][09][0-9][0-9]$/} $node->getAllChildren;
       my @day_sons = grep {attr($_, 'form') =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/} $node->getAllChildren;
       if (scalar(@year_sons) == 1 and scalar(@day_sons)) {
         return 1;
       }
+    }
+    if ($parent_lemma =~ /^(den)$/) {
+      my $grandparent = $parent->getParent;
+      return 0 if !$grandparent;
+      my $grandparent_form = attr($grandparent, 'form') // '';
+      my $grandparent_lemma = attr($grandparent, 'lemma') // '';
+      if ($grandparent_lemma =~ /^(narozený|narodit)$/ or $grandparent_form =~ /^(nar|n)$/) {
+        my @year_sons = grep {attr($_, 'form') =~ /^[12][09][0-9][0-9]$/} $node->getAllChildren;
+        my @day_sons = grep {attr($_, 'form') =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/} $node->getAllChildren;
+        if (scalar(@year_sons) == 1 and scalar(@day_sons)) {
+          return 1;
+        }
+      }        
     }
   }
   return 0;
@@ -1417,8 +1439,17 @@ sub is_year_of_birth {
         return 0 if !$grandparent;
         my $grandparent_form = attr($grandparent, 'form') // '';
         my $grandparent_lemma = attr($grandparent, 'lemma') // '';
-        if ($grandparent_lemma =~ /^(narozený)$/ or $grandparent_form =~ /^(nar|n)$/) {
+        if ($grandparent_lemma =~ /^(narozený|narodit)$/ or $grandparent_form =~ /^(nar|n)$/) {
           return 1;
+        }
+        if ($grandparent_lemma =~ /^(den)$/) {
+          my $greatgrandparent = $grandparent->getParent;
+          return 0 if !$greatgrandparent;
+          my $greatgrandparent_form = attr($greatgrandparent, 'form') // '';
+          my $greatgrandparent_lemma = attr($greatgrandparent, 'lemma') // '';
+          if ($greatgrandparent_lemma =~ /^(narozený|narodit)$/ or $greatgrandparent_form =~ /^(nar|n)$/) {
+            return 1;
+          }        
         }
       }
     }
@@ -1446,8 +1477,17 @@ sub is_day_of_death {
         return 0 if !$grandparent;
         my $grandparent_form = attr($grandparent, 'form') // '';
         my $grandparent_lemma = attr($grandparent, 'lemma') // '';
-        if ($grandparent_lemma =~ /^(zemřelý)$/ or $grandparent_form =~ /^(zem|z)$/) {
+        if ($grandparent_lemma =~ /^(zemřelý|zemřít)$/ or $grandparent_form =~ /^(zem|z)$/) {
           return 1;
+        }
+        if ($grandparent_lemma =~ /^(den)$/) {
+          my $greatgrandparent = $grandparent->getParent;
+          return 0 if !$greatgrandparent;
+          my $greatgrandparent_form = attr($greatgrandparent, 'form') // '';
+          my $greatgrandparent_lemma = attr($greatgrandparent, 'lemma') // '';
+          if ($greatgrandparent_lemma =~ /^(zemřelý|zemřít)$/ or $greatgrandparent_form =~ /^(zem|z)$/) {
+            return 1;
+          }        
         }
       }
     }
@@ -1469,12 +1509,25 @@ sub is_month_of_death {
     return 0 if !$parent;
     my $parent_form = attr($parent, 'form');
     my $parent_lemma = attr($parent, 'lemma') // '';
-    if ($parent_lemma =~ /^(zemřelý)$/ or $parent_form =~ /^(zem|z)$/) {
+    if ($parent_lemma =~ /^(zemřelý|zemřít)$/ or $parent_form =~ /^(zem|z)$/) {
       my @year_sons = grep {attr($_, 'form') =~ /^[12][09][0-9][0-9]$/} $node->getAllChildren;
       my @day_sons = grep {attr($_, 'form') =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/} $node->getAllChildren;
       if (scalar(@year_sons) == 1 and scalar(@day_sons)) {
         return 1;
       }
+    }
+    if ($parent_lemma =~ /^(den)$/) {
+      my $grandparent = $parent->getParent;
+      return 0 if !$grandparent;
+      my $grandparent_form = attr($grandparent, 'form') // '';
+      my $grandparent_lemma = attr($grandparent, 'lemma') // '';
+      if ($grandparent_lemma =~ /^(zemřelý|zemřít)$/ or $grandparent_form =~ /^(zem|z)$/) {
+        my @year_sons = grep {attr($_, 'form') =~ /^[12][09][0-9][0-9]$/} $node->getAllChildren;
+        my @day_sons = grep {attr($_, 'form') =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/} $node->getAllChildren;
+        if (scalar(@year_sons) == 1 and scalar(@day_sons)) {
+          return 1;
+        }
+      }        
     }
   }
   return 0;
@@ -1500,8 +1553,17 @@ sub is_year_of_death {
         return 0 if !$grandparent;
         my $grandparent_form = attr($grandparent, 'form') // '';
         my $grandparent_lemma = attr($grandparent, 'lemma') // '';
-        if ($grandparent_lemma =~ /^(zemřelý)$/ or $grandparent_form =~ /^(zem|z)$/) {
+        if ($grandparent_lemma =~ /^(zemřelý|zemřít)$/ or $grandparent_form =~ /^(zem|z)$/) {
           return 1;
+        }
+        if ($grandparent_lemma =~ /^(den)$/) {
+          my $greatgrandparent = $grandparent->getParent;
+          return 0 if !$greatgrandparent;
+          my $greatgrandparent_form = attr($greatgrandparent, 'form') // '';
+          my $greatgrandparent_lemma = attr($greatgrandparent, 'lemma') // '';
+          if ($greatgrandparent_lemma =~ /^(zemřelý|zemřít)$/ or $greatgrandparent_form =~ /^(zem|z)$/) {
+            return 1;
+          }        
         }
       }
     }
