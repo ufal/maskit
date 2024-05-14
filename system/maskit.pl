@@ -22,7 +22,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.54 20240425'; # version of the program
+my $VER = '0.55 20240514'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -40,7 +40,8 @@ my @features = ('first names (not judges)',
                 'land registration numbers (registrační čísla pozemků)',
                 'birth registration numbers (rodná čísla)',
                 'dates of birth/death',
-                'agenda reference numbers (čísla jednací)');
+                'agenda reference numbers (čísla jednací)',
+                'vehicle registration numbers (SPZ)');
 
 my %supported_NameTag_classes = ('pf' => 1, # first names
                                  'ps' => 1, # surnames
@@ -931,13 +932,14 @@ Fake marks are assigned for cases not recognized by NameTag:
 ax - the first part (three digits) of a ZIP code
 ay - the second part (two digits) of a ZIP code
 
+nd - SPZ (root of the whole SPZ subtree)
 nk - IČO
 nl - DIČ
-
 nm - land register number
-
 nx - the first part (six digits) of a birth registration number
 ny - the second part (four or three digits) of a birth registration number
+
+nr - agenda reference number (číslo jednací)
 
 ta - day of birth
 tb - month of birth
@@ -948,8 +950,6 @@ ti - day of death
 tj - month of death
 tk - year of death
 tl - day and month of death (if written without a space and therefore parsed as one token, e.g., "21.12")
-
-nr - agenda reference number (číslo jednací)
 
 =cut
 
@@ -991,6 +991,10 @@ sub get_NameTag_marks {
   }
   if (is_birth_number_part2($node)) {
     return 'ny'; # fake mark for second part of birth registration number
+  }
+
+  if (is_vehicle_registration_number_root($node)) {
+    return 'nd'; # fake mark for the root of a vehicle registration number
   }
 
   # hide 'hlavní' if dependent on 'město' and do not assign any tag to this 'město' 
@@ -1363,7 +1367,7 @@ sub is_day_of_birth {
   if ($form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/) {
     my $parent = $node->getParent;
     return 0 if !$parent;
-    my $parent_form = attr($parent, 'form');
+    my $parent_form = attr($parent, 'form') // '';
     if ($parent_form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12)$/) {
       my @year_brothers = grep {attr($_, 'form') =~ /^[12][09][0-9][0-9]$/} $parent->getAllChildren;
       if (scalar(@year_brothers) == 1) {
@@ -1459,7 +1463,7 @@ sub is_day_of_death {
   if ($form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16|17|18|19|20|21|22|23|24|25|26|27|28|29|30|31)$/) {
     my $parent = $node->getParent;
     return 0 if !$parent;
-    my $parent_form = attr($parent, 'form');
+    my $parent_form = attr($parent, 'form') // '';
     if ($parent_form =~ /^(1|2|3|4|5|6|7|8|9|10|11|12)$/) {
       my @year_brothers = grep {attr($_, 'form') =~ /^[12][09][0-9][0-9]$/} $parent->getAllChildren;
       if (scalar(@year_brothers) == 1) {
@@ -1740,6 +1744,17 @@ sub is_birth_number_part2 {
   return 0;
 }
 
+sub is_vehicle_registration_number_root {
+  my $node = shift;
+  return 0 if (attr($node, 'upostag') ne 'NUM' and attr($node, 'form') !~ /^[A-Z]{1,3}$/);
+  my $parent = $node->getParent;
+  return 0 if !$parent;
+  my $parent_form = attr($parent, 'form') // '';
+  if ($parent_form eq 'SPZ' or $parent_form eq 'RZ') {
+    return 1;
+  }
+  return 0;
+}
 
 
 =item
@@ -1981,6 +1996,32 @@ sub get_multiword_recursive {
       push(@name_parts, @recursive_name_parts);
     }
   }
+  elsif ($class eq 'nd') { # a fake mark for vehicle registration number (SPZ)
+    @name_parts = grep {attr($_, 'upostag') eq 'NUM' or attr($_, 'form') =~ /^[A-Z]{1,3}$/}
+                  $node->getAllChildren;
+    # check if there are more roots of the vehicle registration number, i.e. more sons of the form='SPZ' node that represent the reg. number
+    my $parent = $node->getParent; # it must exist, otherwise there could not be class 'nd' here
+    my $parent_form = attr($parent, 'form') // '';
+    if ($parent_form eq 'SPZ' or $parent_form eq 'RZ') { # this is possibly one of several roots of SPZ, as there may be several sons of the 'SPZ' node representing the registration number
+      my @right_sibling = grep {attr($_, 'ord') == attr($node, 'ord') + 1} $parent->getAllChildren;
+      if (@right_sibling) {
+        my $right_sibling_node = $right_sibling[0];
+        if (attr($right_sibling_node, 'upostag') eq 'NUM' or attr($right_sibling_node, 'form') =~ /^[A-Z]{1,3}$/) {
+          push(@name_parts, $right_sibling_node); # in this recursion step we add only one right sibling - to avoid deep recursion
+        }
+      }
+    }
+    foreach my $name_part (@name_parts) {
+      #mylog(0, " - adding a vehicle registration number part to a multiword: " . attr($name_part, 'form') . "\n");
+      @recursive_name_parts = get_multiword_recursive($name_part, $class);
+      # push(@name_parts, @recursive_name_parts) ... somehow the last part got doubled
+      foreach my $recursive_name_part (@recursive_name_parts) {
+        if (!grep {$_ eq $recursive_name_part} @name_parts) {
+          push(@name_parts, $recursive_name_part);
+        }
+      }
+    }
+  }
   #mylog(0, "get_multiword_recursive: returning list of size " . scalar(@name_parts) . "\n");  
   return @name_parts;
 }
@@ -2148,7 +2189,7 @@ sub get_multiword_stem_from_nodes {
   @nodes = sort {attr($a, 'ord') <=> attr($b, 'ord')} @nodes;
   my @nodes_lemmas = map {attr($_, 'lemma')} @nodes;
   my @nodes_stems = map {get_stem_from_lemma($_)} @nodes_lemmas;
-  my $stem = join('_', @nodes_stems);
+  my $stem = join('', @nodes_stems); # let us join them without a separator, as at different parts of the text the tokenization of the same thing may differ (e.g., the same vehicle registration number tokenized differently)
   return $stem;
 }
 
@@ -2597,6 +2638,16 @@ sub get_original {
   my $node = shift;
   my $ord = attr($node, 'ord');
   my @hidden_descendants = grep {attr($_, 'hidden') and attr($_, 'hidden') eq $ord} descendants($node);
+  # for cases when the hidden structure has more roots (as it happens with SPZ), check siblings and their descendants
+  my $parent = $node->getParent;
+  if ($parent) {
+    my @hidden_siblings = grep {attr($_, 'hidden') and attr($_, 'hidden') eq $ord} $parent->getAllChildren;
+    foreach my $hidden_sibling (@hidden_siblings) { # add their hidden descendants and themselves
+      my @hidden_sibling_hidden_descendants = grep {attr($_, 'hidden') and attr($_, 'hidden') eq $ord} descendants($hidden_sibling);
+      push(@hidden_descendants, @hidden_sibling_hidden_descendants);
+      push(@hidden_descendants, $hidden_sibling);
+    }
+  }
   push(@hidden_descendants, $node);
   return surface_text(@hidden_descendants);
 }
