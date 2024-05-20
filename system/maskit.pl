@@ -1197,7 +1197,7 @@ sub sentence_with_court {
 =item is_member_of_court
 
 Returns 1 if the given name with the given mark (ps or pf) seems to be a member of court (in various syntactic positions)
-(soudce etc., předseda senátu, přísedící)
+(soudce etc., předseda/předsedkyně senátu, přísedící)
 
 =cut
 
@@ -1247,11 +1247,11 @@ Returns 1 if exactly this node seems to be a member of court (¨in various synta
 
 sub this_node_member_of_court {
   my ($node) = @_;
-  my @court_member_children = grep {attr($_, 'lemma') =~ /^(soudce|soudkyně|samosoudce|samosoudkyně|předseda|přísedící)$/} $node->getAllChildren;
+  my @court_member_children = grep {attr($_, 'lemma') =~ /^(soudce|soudkyně|samosoudce|samosoudkyně|předseda|předsedkyně|přísedící)$/} $node->getAllChildren;
   return 1 if @court_member_children;
   my $parent = $node->getParent;
   return 0 if !$parent;
-  if (attr($parent, 'lemma') =~ /^(soudce|soudkyně|samosoudce|samosoudkyně|předseda|přísedící)$/) {
+  if (attr($parent, 'lemma') =~ /^(soudce|soudkyně|samosoudce|samosoudkyně|předseda|předsedkyně|přísedící)$/) {
     return 1;
   }
   return 0;
