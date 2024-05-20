@@ -22,7 +22,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.55 20240514'; # version of the program
+my $VER = '0.56 20240520'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -30,7 +30,7 @@ my @features = ('first names (not judges)',
                 'e-mails',
                 'street names (incl. multiword)',
                 'street numbers',
-                'town/town part names (incl. multiword)',
+                'town/town part names (incl. multiword; not places of court)',
                 'ZIP codes',
                 'company names (incl. multiword)',
                 #'government/political agencies (incl. multiword)',
@@ -982,9 +982,17 @@ sub get_NameTag_marks {
   if ($marks =~ /\b(pf|ps)\b/ and is_child_of_lemma_regexp_and_class_regexp($node, '^(soudce|soudkyně|samosoudce|samosoudkyně)$', '')) { # no condition on NameTag class for the parent
     my $type = $1;
     $marks = remove_from_marks_string($marks, $1);
-    mylog(0, "Removing mark '$type' from a judge name '$lemma'\n"); 
+    mylog(0, "Removing mark '$type' from a judge name '$lemma'.\n"); 
   }
 
+  # do not anonymize city/town (gu) if it is a place of court
+  if ($marks =~ /\b(gu)\b/ and is_child_of_lemma_regexp_and_class_regexp($node, '^(soud)$', '')) { # no condition on NameTag class for the parent
+    my $type = $1;
+    $marks = remove_from_marks_string($marks, $1);
+    mylog(0, "Removing mark '$type' from a city/town '$lemma' where a court is located.\n"); 
+  }
+  
+  
   # Birth registration number
   if (is_birth_number_part1($node)) {
     return 'nx'; # fake mark for firt part of birth registration number
