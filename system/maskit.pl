@@ -985,6 +985,14 @@ sub get_NameTag_marks {
     mylog(0, "Removing mark '$type' from a judge name '$lemma'.\n"); 
   }
 
+  # the same for 'předseda senátu' and 'přísedící' (and 'soudce' in a different syntactic position) etc. if they appear in a sentence with a court
+  if ($marks =~ /\b(pf|ps)\b/) {
+    my $type = $1;
+    if (is_member_of_court($node, $type) and sentence_with_court($node)) {
+      $marks = remove_from_marks_string($marks, $1);
+    }
+  }
+
   # do not anonymize city/town (gu) if it is a place of court
   if ($marks =~ /\b(gu)\b/ and is_child_of_lemma_regexp_and_class_regexp($node, '^(soud)$', '')) { # no condition on NameTag class for the parent
     my $type = $1;
@@ -1166,6 +1174,87 @@ sub get_NameTag_marks {
     return undef;
   }
   return $marks;
+}
+
+
+=item sentence_with_court
+
+Return 1 if the word 'court' (soud) appears in the same sentence.
+
+=cut
+
+sub sentence_with_court {
+  my ($node) = @_;
+  my $root = root($node);
+  my @courts = grep {attr($_, 'lemma') eq 'soud'} descendants($root);
+  if (@courts) {
+    return 1;
+  }
+  return 0;
+}
+
+
+=item is_member_of_court
+
+Returns 1 if the given name with the given mark (ps or pf) seems to be a member of court (in various syntactic positions)
+(soudce etc., předseda senátu, přísedící)
+
+=cut
+
+sub is_member_of_court {
+  my ($node, $mark) = @_;
+  
+  # first let us climb up if either the surname or the first name depend on the other
+  my $parent = $node->getParent;
+  return 0 if !$parent;
+  my @parent_values = get_NE_values($parent);
+  my $parent_marks = join '~', @parent_values;
+  if ($parent_marks =~ /\b(pf|ps)\b/) {
+    $node = $parent;
+    $parent = $node->getParent;
+  }
+  
+  if (this_node_member_of_court($node)) {
+    return 1;
+  }
+
+  return 0 if !$parent;
+  
+  @parent_values = get_NE_values($parent);
+  $parent_marks = join '~', @parent_values;
+
+  # if this name is coordinated, climb up the coordination and test the parents
+  while (attr($node, 'deprel') eq 'conj' and $parent_marks =~ /\b(pf|ps)\b/) {
+    if (this_node_member_of_court($parent)) {
+      return 1;
+    }
+    $parent = $parent->getParent;
+    return 0 if !$parent;
+    @parent_values = get_NE_values($parent);
+    $parent_marks = join '~', @parent_values;
+  }
+  
+  return 0;
+}
+
+
+=item this_node_member_of_court
+
+Returns 1 if exactly this node seems to be a member of court (¨in various syntactic positions)
+(soudce etc., předseda senátu, přísedící)
+
+=cut
+
+sub this_node_member_of_court {
+  my ($node) = @_;
+  my @court_member_children = grep {attr($_, 'lemma') =~ /^(soudce|soudkyně|samosoudce|samosoudkyně|předseda|přísedící)$/} $node->getAllChildren;
+  return 1 if @court_member_children;
+  my $parent = $node->getParent;
+  return 0 if !$parent;
+  if (attr($parent, 'lemma') =~ /^(soudce|soudkyně|samosoudce|samosoudkyně|předseda|přísedící)$/) {
+    return 1;
+  }
+  return 0;
 }
 
 
@@ -2817,10 +2906,16 @@ sub descendants {
   
 sub root {
   my $node = shift;
-  while ($node->getParent) {
-    $node = $node->getParent;
+
+  my $parent = $node->getParent;
+#  while ($parent and $parent ne 'root' and $parent ne 'ROOT') { # to be sure - the documentation says 'ROOT', in practice its 'root'
+  while ($parent and $parent ne 'root' and $parent ne 'ROOT') { # to be sure - the documentation says 'ROOT', in practice its 'root'
+    # mylog(0, "root: found a parent\n");
+    $node = $parent;
+    $parent = $node->getParent;
   }
   return $node;
+
 }
 
 
