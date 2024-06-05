@@ -22,7 +22,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.56 20240520'; # version of the program
+my $VER = '0.57 20240605'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -760,8 +760,13 @@ foreach $root (@trees) {
     mylog(0, "\n");
     mylog(0, "Processing form '$form' (lemma '$lemma') with NameTag classes '$classes' and feats '$feats'\n");
 
-    foreach my $class (split('~', $classes)) {
-    
+    my @a_classes = split('~', $classes);
+    foreach my $class (@a_classes) {
+
+      if (grep {/ignore_$class/} @a_classes) { # skip processing this class if ignore_$class is among the classes
+        next;
+      }
+      
       my $constraints = $class2constraints{$class};
       if (!$constraints) {
         mylog(0, "No constraints for NE class '$class', skipping.\n");
@@ -981,23 +986,27 @@ sub get_NameTag_marks {
   # do not anonymize names of judges, despite being 'pf'/'ps'
   if ($marks =~ /\b(pf|ps)\b/ and is_child_of_lemma_regexp_and_class_regexp($node, '^(soudce|soudkyně|samosoudce|samosoudkyně)$', '')) { # no condition on NameTag class for the parent
     my $type = $1;
-    $marks = remove_from_marks_string($marks, $1);
-    mylog(0, "Removing mark '$type' from a judge name '$lemma'.\n"); 
+    $marks .= "~ignore_$type" if not $marks =~ /~ignore_$type/;
+    # $marks = remove_from_marks_string($marks, $1);
+    mylog(0, "Setting mark 'ignore_$type' for a judge name '$lemma'.\n"); 
   }
 
   # the same for 'předseda senátu' and 'přísedící' (and 'soudce' in a different syntactic position) etc. if they appear in a sentence with a court
   if ($marks =~ /\b(pf|ps)\b/) {
     my $type = $1;
     if (is_member_of_court($node, $type) and sentence_with_court($node)) {
-      $marks = remove_from_marks_string($marks, $1);
+      $marks .= "~ignore_$type" if not $marks =~ /~ignore_$type/;
+      #$marks = remove_from_marks_string($marks, $1);
+      mylog(0, "Setting mark 'ignore_$type' for a member of court.\n"); 
     }
   }
 
   # do not anonymize city/town (gu) if it is a place of court
-  if ($marks =~ /\b(gu)\b/ and is_child_of_lemma_regexp_and_class_regexp($node, '^(soud)$', '')) { # no condition on NameTag class for the parent
+  if ($marks =~ /\b(gu)\b/ and is_part_of_class_regexp_descending_from_lemma($node, 'gu', '^(soud)$')) {
     my $type = $1;
-    $marks = remove_from_marks_string($marks, $1);
-    mylog(0, "Removing mark '$type' from a city/town '$lemma' where a court is located.\n"); 
+    $marks .= '~ignore_gu' if not $marks =~ /~ignore_gu/;
+    #$marks = remove_from_marks_string($marks, $1);
+    #mylog(0, "Removing mark '$type' from a city/town '$lemma' where a court is located.\n"); 
   }
   
   
@@ -1283,7 +1292,7 @@ sub is_part_of_lemma_and_class {
 }
 
 
-=item is_part_of_lemma_r´egexp_and_class_regexp
+=item is_part_of_lemma_regexp_and_class_regexp
 
 Checks if the node is a child of a node with the given lemma and NameTag class (the class given as regexp). 
 
@@ -1303,6 +1312,33 @@ sub is_child_of_lemma_regexp_and_class_regexp {
     return 0;
   }
   return 1;
+}
+
+
+=item is_part_of_class_regexp_descending_from_lemma
+
+Checks if the node is a given NameTag class (the class given as regexp) and recursively via the same class dependes on the given lemma (the lemma also given by regexp).
+
+=cut
+
+sub is_part_of_class_regexp_descending_from_lemma {
+  my ($node, $class_regexp, $lemma_regexp) = @_;
+
+  my @values = get_NE_values($node);
+  my $marks = join '~', @values;
+  if ($class_regexp and $marks !~ $class_regexp) {
+    return 0;
+  }
+  
+  my $parent = $node->getParent;
+  return 0 if !$parent;
+  my $parent_lemma = attr($parent, 'lemma') // '';
+  
+  if ($lemma_regexp and $parent_lemma =~ $lemma_regexp) {
+    return 1;
+  }
+  
+  return is_part_of_class_regexp_descending_from_lemma($parent, $class_regexp, $lemma_regexp);
 }
 
 
