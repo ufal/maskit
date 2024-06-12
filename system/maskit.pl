@@ -22,7 +22,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.57 20240605'; # version of the program
+my $VER = '0.58 20240612'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -965,6 +965,7 @@ sub get_NameTag_marks {
   # mylog(0, "get_NameTag_marks: $ne -> $marks\n");
 
   my $lemma = attr($node, 'lemma') // '';
+  my $upostag = attr($node, 'upostag') // '';
   
   my $parent = $node->getParent;
   my $parent_lemma = '';
@@ -1008,7 +1009,12 @@ sub get_NameTag_marks {
     #$marks = remove_from_marks_string($marks, $1);
     #mylog(0, "Removing mark '$type' from a city/town '$lemma' where a court is located.\n"); 
   }
-  
+
+  # Recover from NameTag wrongly marking words such as "Vašeho" as 'ps'
+  if ($marks =~ /\bps\b/ and $upostag eq 'DET') {
+    $marks = remove_from_marks_string($marks, 'ps');
+    mylog(0, "Removing mark 'ps' from a DET '$lemma'.\n");
+  }
   
   # Birth registration number
   if (is_birth_number_part1($node)) {
