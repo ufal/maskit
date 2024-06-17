@@ -30,6 +30,7 @@ my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
                 'phone numbers (non-emergency)',
                 'e-mails',
+                'www addresses',
                 'street names (incl. multiword)',
                 'street numbers',
                 'town/town part names (incl. multiword; not places of court)',
@@ -49,6 +50,7 @@ my %supported_NameTag_classes = ('pf' => 1, # first names
                                  'ps' => 1, # surnames
                                  'at' => 1, # phone/fax numbers
                                  'me' => 1, # e-mail address
+                                 'mi' => 1, # www address
                                  'gs' => 1, # streets, squares
                                  'ah' => 1, # street numbers
                                  'gu' => 1, # cities/towns
@@ -106,6 +108,7 @@ my $color_replacement_az = 'magenta'; # zip code
 my $color_replacement_pf = 'red'; # first name
 my $color_replacement_ps = 'red'; # surname
 my $color_replacement_me = 'pink'; # e-mail
+my $color_replacement_mi = 'pink'; # e-mail
 my $color_replacement_if = 'darkcyan'; # company
 my $color_replacement_nk = 'blue'; # IČO
 my $color_replacement_nl = 'blue'; # DIČ
