@@ -14,6 +14,8 @@ use File::Basename;
 use Time::HiRes qw(gettimeofday tv_interval); # to measure how long the program ran
 use Sys::Hostname;
 use Email::Valid; # check if a string is an e-mail
+use Data::Validate::URI; # check if a string is a www address
+
 
 # STDIN and STDOUT in UTF-8
 binmode STDIN, ':encoding(UTF-8)';
@@ -22,7 +24,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.58 20240612'; # version of the program
+my $VER = '0.59 20240617'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -142,6 +144,7 @@ my $add_NE;
 my $output_statistics;
 my $store_format;
 my $store_statistics;
+my $log_states;
 my $version;
 my $info;
 my $help;
@@ -160,6 +163,7 @@ GetOptions(
     'os|output-statistics'   => \$output_statistics, # adds statistics to the output; if present, output is JSON with two items: data (in output-format) and stats (in HTML)
     'sf|store-format=s'      => \$store_format, # log the result in the given format: txt, html, conllu
     'ss|store-statistics'    => \$store_statistics, # should statistics be logged as an HTML file?
+    'ls|log-states=s'        => \$log_states, # log intermediate states in CoNLL-U format for debugging; possible values (separated by a comma): UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), UN (after unification of single-word NEs) 
     'v|version'              => \$version, # print the version of the program and exit
     'n|info'                 => \$info, # print the info (program version and supported features) as JSON and exit
     'h|help'                 => \$help, # print a short help and exit
@@ -203,6 +207,8 @@ options:  -i|--input-file [input text file name]
          -os|--output-statistics (add MasKIT statistics to output; if present, output is JSON with two items: data (in output-format) and stats (in HTML))
          -sf|--store-format [format: log the output in the given format: txt, html, conllu]
          -ss|--store-statistics (log statistics to an HTML file)
+         -ls|--log-states (log intermediate states in CoNLL-U format for debugging; possible values (separated by a comma):
+                           UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), UN (after unification of single-word NEs) 
           -v|--version (prints the version of the program and ends)
           -n|--info (prints the program version and supported features as JSON and ends)
           -h|--help (prints a short help and ends)
@@ -310,7 +316,18 @@ if ($store_statistics) {
   mylog(0, " - log MasKIT statistics in an HTML file\n");
 }
 
+if ($log_states) {
+  my $print_log_states = $log_states;
+  $print_log_states =~ s/\bUD\b/after UDPipe/g;
+  $print_log_states =~ s/\bNT\b/after NameTag/g;
+  $print_log_states =~ s/\bPA\b/after parsing to Tree::Simple/g;
+  $print_log_states =~ s/\bUN\b/after unification of single-word NEs/g;
+  $print_log_states =~ s/,/, /g;
+  mylog(0, " - log intermediate states in CoNLL-U format for debugging: $print_log_states\n");
+}
+
 mylog(0, "\n");
+
 
 ###################################################################################
 # Let us first read the file with replacements
@@ -409,9 +426,11 @@ my $conll_segmented = call_udpipe($input_content, 'segment');
 my $conll_data = call_udpipe($conll_segmented, 'parse');
 
 # Store the result to a file (for debugging, not needed for further processing)
-#  open(OUT, '>:encoding(utf8)', "$input_file.conll") or die "Cannot open file '$input_file.conll' for writing: $!";
-#  print OUT $conll_data;
-#  close(OUT);
+if ($log_states and $log_states =~ /\bUD\b/) {
+  open(OUT, '>:encoding(utf8)', "$input_file.UD.conllu") or die "Cannot open file '$input_file.UD.conllu' for writing: $!";
+  print OUT $conll_data;
+  close(OUT);
+}
 
 ###################################################################################
 # Now let us add info about named entities¨ using NameTag REST API
@@ -420,9 +439,11 @@ my $conll_data = call_udpipe($conll_segmented, 'parse');
 my $conll_data_ne = call_nametag($conll_data);
 
 # Store the result to a file (for debugging, not needed for further processing)
-#  open(OUT, '>:encoding(utf8)', "$input_file.conllne") or die "Cannot open file '$input_file.conllne' for writing: $!";
-#  print OUT $conll_data_ne;
-#  close(OUT);
+if ($log_states and $log_states =~ /\bNT\b/) {
+  open(OUT, '>:encoding(utf8)', "$input_file.NT.conllu") or die "Cannot open file '$input_file.NT.conllu' for writing: $!";
+  print OUT $conll_data_ne;
+  close(OUT);
+}
 
 
 
@@ -540,10 +561,12 @@ if ($root) {
 
 
 # Export the parsed trees to a file (for debugging, not needed for further processing)
-#  open(OUT, '>:encoding(utf8)', "$input_file.export.conllu") or die "Cannot open file '$input_file.export.conllu' for writing: $!";
-#  my $conll_export = get_output('conllu');
-#  print OUT $conll_export;
-#  close(OUT);
+if ($log_states and $log_states =~ /\bPA\b/) {
+  open(OUT, '>:encoding(utf8)', "$input_file.PA.conllu") or die "Cannot open file '$input_file.PA.conllu' for writing: $!";
+  my $conll_export = get_output('conllu');
+  print OUT $conll_export;
+  close(OUT);
+}
 
 
 ###########################################################################################
@@ -697,10 +720,12 @@ mylog(1, "====================================================================\n
 
 
 # Export the modified trees to a file (for debugging, not needed for further processing)
-#  open(OUT, '>:encoding(utf8)', "$input_file.export_unif.conllu") or die "Cannot open file '$input_file.export_unif.conllu' for writing: $!";
-#  my $conll_unif_export = get_output('conllu');
-#  print OUT $conll_unif_export;
-#  close(OUT);
+if ($log_states and $log_states =~ /\bUN\b/) {
+  open(OUT, '>:encoding(utf8)', "$input_file.UN.conllu") or die "Cannot open file '$input_file.UN.conllu' for writing: $!";
+  my $conll_unif_export = get_output('conllu');
+  print OUT $conll_unif_export;
+  close(OUT);
+}
 
 
 ###########################################################################################
@@ -1097,6 +1122,17 @@ sub get_NameTag_marks {
   if ($marks !~ /\bme\b/ and is_email($node)) {
     return 'me';
   }
+  
+  # www address not recognized by NameTag or wrongly recognized by NameTag as e-mail
+  if (!is_email($node) and is_www($node)) {
+    if ($marks =~ /\bme\b/) { 
+      $marks =~ s/\bme\b/mi/;
+      mylog(0, "Replacing 'me' (e-mail) by 'mi' (www address) in wrongly recognized e-mail by NameTag: '" . attr($node, 'form') . "'\n");
+    }
+    else {
+      return 'mi';
+    }
+  }
 
   # underspecified personal names (p_) - for recall, we consider them surnames
   if ($marks eq 'p_') {
@@ -1488,6 +1524,28 @@ sub is_email {
   my $form = attr($node, 'form');
   my $address = Email::Valid->address($form);
   if ($address) {
+    return 1;
+  }
+  return 0;
+}
+
+
+=item
+
+Returns 1 if the node is a www address (sometimes NameTag failes to recognize them or mixes them with e-mails).
+
+=cut
+
+sub is_www {
+  my $node = shift;
+  my $form = attr($node, 'form');
+  my $uriValidator = new Data::Validate::URI();
+  my $valid = $uriValidator->is_web_uri($form);
+  if ($valid) {
+    return 1;
+  }
+  $valid = $uriValidator->is_web_uri("http://$form");
+  if ($valid) {
     return 1;
   }
   return 0;

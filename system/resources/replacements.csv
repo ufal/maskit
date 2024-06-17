@@ -138,6 +138,10 @@ ic	institute	Case=Ins	UniInstitucí|ProfiInstitucí|BravoInstitucí|EduInstituc�
 me	email	ClassName	M-EMAIL
 me	email	NoConstraint	abc@gmail.com|def@gmail.com|ghi@gmail.com|jkl@gmail.com|mno@gmail.com|pqr@gmail.com|stu@gmail.com|vwx@gmail.com|yza@gmail.com|bcd@gmail.com
 
+# www address
+mi	www	ClassName	M-WWW
+mi	www	NoConstraint	www.webaaa.cz|www.webbbb.cz|www.webccc.cz|www.webddd.cz|www.webeee.cz|www.webfff.cz|www.webggg.cz|www.webhhh.cz|www.webiii.cz|www.webjjj.cz
+
 # IČO (fake mark)
 nk	ICO	ClassName	M-IČO
 nk	ICO	NoConstraint	12345678|23456789|34567890|45678901|56789012|67890123|78901234|89012345|90123456|01234567
