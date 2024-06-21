@@ -1271,7 +1271,7 @@ sub get_NameTag_marks {
 
 =item mesto_in_name_of_town
 
-Returns 1 if the given node (with lemma 'město') is a part of a town name. It also sets 'gu_1' to all parts of the town name.
+Returns 1 if the given node (with lemma 'město') is a part of a town name. It also sets 'gu_1' to all parts of the town name because NameTag somehow fails to properly recognize all nodes.
 
 List of towns in ČR with "město" in the name (https://www.wikiwand.com/cs/Seznam_m%C4%9Bst_v_%C4%8Cesku):
 
@@ -1301,25 +1301,8 @@ sub mesto_in_name_of_town {
   if (@town_sons_novy) { # 'Nový' among sons; now let us look for other parts...
     #mylog(0, "mesto_in_name_of_town: - 'Nový' among sons.\n");    
     my $town_son_novy = $town_sons_novy[0]; # měl bych tam pak nastavit gu, pokud se to potvrdí jako součást města
-    # for UD-like position of prepositions (i.e, noun depends on prep):
-    my @town_sons_prep = grep {attr($_, 'lemma') =~ /^([Nn]ad|[Nn]a|[Pp]od)/} $node->getAllChildren;
-    if (scalar(@town_sons_prep)) { # Nové Město nad/na/pod ...
-      foreach my $town_son_prep (@town_sons_prep) { # let us check that the remaining part is there
-        #mylog(0, "mesto_in_name_of_town: - a preposition among sons.\n");    
-        my @prep_sons_name = grep {attr($_, 'lemma') =~ /^(Morava|Metuje|[Ss]mrk)/} $town_son_prep->getAllChildren;
-        if (@prep_sons_name) { # OK, found the whole town name
-          #mylog(0, "mesto_in_name_of_town: - a rest of name among sons.\n");    
-          foreach my $prep_son_name (@prep_sons_name) {
-            check_and_add_NE_value_to_misc($prep_son_name, 'gu_1'); # tady všude by bylo lepší dát číslo podle zbytku názvu města
-          }
-          check_and_add_NE_value_to_misc($town_son_prep, 'gu_1');
-          check_and_add_NE_value_to_misc($town_son_novy, 'gu_1');
-          check_and_add_NE_value_to_misc($node, 'gu_1');
-          return 1;
-        }
-      }
-    }
-    # for PDT-like position of prepositions (i.e, prep depends on noun):
+    
+    # for UD-like position of prepositions (i.e, prep depends on noun):
     my @town_sons_name = grep {attr($_, 'lemma') =~ /^(Morava|Metuje|[Ss]mrk)/} $node->getAllChildren;
       if (scalar(@town_sons_name)) { # Nové Město ... Moravou/Metují/Smrkem
       #mylog(0, "mesto_in_name_of_town: - a rest of name among sons.\n");    
@@ -1337,6 +1320,26 @@ sub mesto_in_name_of_town {
         }        
       }
     }
+
+    # for PDT-like position of prepositions (i.e, noun depends on prep): (probably useless, the data are parsed in UD style)
+    my @town_sons_prep = grep {attr($_, 'lemma') =~ /^([Nn]ad|[Nn]a|[Pp]od)/} $node->getAllChildren;
+    if (scalar(@town_sons_prep)) { # Nové Město nad/na/pod ...
+      foreach my $town_son_prep (@town_sons_prep) { # let us check that the remaining part is there
+        #mylog(0, "mesto_in_name_of_town: - a preposition among sons.\n");    
+        my @prep_sons_name = grep {attr($_, 'lemma') =~ /^(Morava|Metuje|[Ss]mrk)/} $town_son_prep->getAllChildren;
+        if (@prep_sons_name) { # OK, found the whole town name
+          #mylog(0, "mesto_in_name_of_town: - a rest of name among sons.\n");    
+          foreach my $prep_son_name (@prep_sons_name) {
+            check_and_add_NE_value_to_misc($prep_son_name, 'gu_1'); # tady všude by bylo lepší dát číslo podle zbytku názvu města
+          }
+          check_and_add_NE_value_to_misc($town_son_prep, 'gu_1');
+          check_and_add_NE_value_to_misc($town_son_novy, 'gu_1');
+          check_and_add_NE_value_to_misc($node, 'gu_1');
+          return 1;
+        }
+      }
+    }
+    
   }
   return 0; 
 }
@@ -1944,14 +1947,16 @@ sub depends_on_deceased {
 Returns 1 if the given node appears to be a land register number (katastrální číslo pozemku). Otherwise returns 0.
 Technically, it returns 1 if:
 - it is a number
-- and among its predecessors on the part of the path to the root with deprels nmod or nummod (and the final parent of any deprel) is at least one of:
+- and among its left predecessors on the part of the path to the root with deprels nmod or nummod (and the final parent of any deprel) is at least one of:
    - lemma 'pozemek'
    - or lemma 'číslo' and its parent has form 'p' (p. č.)
+AND the number does not have preposition 'z' as its only (and left) son (we want to exlude expressions such as "2 pozemky ze 4")
 
 =cut
 
 sub is_land_register_number {
   my $node = shift;
+  my $ord = attr($node, 'ord') // '';
   my $form = attr($node, 'form') // '';
   my $deprel = attr($node, 'deprel') // '';
   if ($form =~ /^\d+$/) { # a number
@@ -1961,10 +1966,22 @@ sub is_land_register_number {
       my $parent_deprel = attr($parent, 'deprel') // '';
       my $parent_form = attr($parent, 'form') // '';
       my $parent_lemma = attr($parent, 'lemma') // '';
-      if ($parent_lemma =~ /^pozemek$/) {
-        return 1;
+      my $parent_ord = attr($parent, 'ord') // '';
+      if ($parent_lemma =~ /^pozemek$/ and $ord > $parent_ord) {
+        # let us exclude numbers with prep 'z' as only left son
+        my @sons = $node->getAllChildren;
+        if (scalar(@sons) != 1) { # not exactly one son
+          return 1;
+        }
+        my $son = $sons[0];
+        my $son_lemma = attr($son, 'lemma') // '';
+        my $son_upostag = attr($son, 'upostag') // '';
+        my $son_ord = attr($son, 'ord') // '';
+        if ($son_lemma ne 'z' or $son_upostag ne 'ADP' or $son_ord > $ord) {
+          return 1;
+        }
       }
-      if ($parent_lemma =~ /^číslo$/) {
+      if ($parent_lemma =~ /^číslo$/ and $ord > $parent_ord) {
         my $grandparent = $parent->getParent;
         if ($grandparent) {
           my $grandparent_form = attr($grandparent, 'form') // '';
