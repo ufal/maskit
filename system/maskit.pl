@@ -1175,6 +1175,10 @@ sub get_NameTag_marks {
     }
   }
 
+  if ($marks eq 'p_' and $lemma =~ /^(pan|paní|slečna)$/) { # in already anonymized expressions such as "pan A"
+    $marks = remove_from_marks_string($marks, 'p_');
+  }
+  
   # underspecified personal names (p_) - for recall, we consider them surnames
   if ($marks eq 'p_') {
     return 'ps';
