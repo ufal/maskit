@@ -174,7 +174,7 @@ GetOptions(
     'os|output-statistics'   => \$output_statistics, # adds statistics to the output; if present, output is JSON with two items: data (in output-format) and stats (in HTML)
     'sf|store-format=s'      => \$store_format, # log the result in the given format: txt, html, conllu
     'ss|store-statistics'    => \$store_statistics, # should statistics be logged as an HTML file?
-    'ls|log-states=s'        => \$log_states, # log intermediate states in CoNLL-U format for debugging; possible values (separated by a comma): UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), UN (after unification of single-word NEs) 
+    'ls|log-states=s'        => \$log_states, # log in´termediate states in CoNLL-U format for debugging; possible values (separated by a comma): UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), UN (after unification of single-word NEs) 
     'll|logging-level=s'     => \$logging_level_override, # override the default (anonymous) logging level (0=full, 1=limited, 2=anonymous)
     'v|version'              => \$version, # print the version of the program and exit
     'n|info'                 => \$info, # print the info (program version and supported features) as JSON and exit
@@ -1076,12 +1076,18 @@ sub get_NameTag_marks {
     return 'nd'; # fake mark for the root of a vehicle registration number
   }
 
-  # remove 'gu' from 'město' if it is not a part of the town name
+  # remove 'gu' from 'město' if it is not a part of the town name;
   if ($lemma =~ /^[Mm]ěsto$/ and $marks =~ /\bgu\b/ and !mesto_in_name_of_town($node)) {
     $marks = remove_from_marks_string($marks, 'gu');
     mylog(0, "Removing mark 'gu' from '$lemma'.\n");
   }
-    
+
+  # also, add 'gu' to 'město' if it is not there but it is a part of the town name
+  if ($lemma =~ /^[Mm]ěsto$/ and $marks !~ /\bgu\b/ and mesto_in_name_of_town($node)) {
+    $marks .= '~gu';
+    mylog(0, "Adding mark 'gu' to '$lemma'.\n");
+  }
+
   # hide 'hlavní' if dependent on 'město' and do not assign any tag to this 'město' 
   if ($lemma eq 'město') {
     my @sons_hlavni = grep {attr($_, 'lemma') eq 'hlavní'} $node->getAllChildren;
@@ -1259,7 +1265,7 @@ sub get_NameTag_marks {
 
 =item mesto_in_name_of_town
 
-Returns 1 if the given node (with lemma 'město') is a part of a town name.
+Returns 1 if the given node (with lemma 'město') is a part of a town name. It also sets 'gu_1' to all parts of the town name.
 
 List of towns in ČR with "město" in the name (https://www.wikiwand.com/cs/Seznam_m%C4%9Bst_v_%C4%8Cesku):
 
@@ -1276,19 +1282,83 @@ Staré Město
 sub mesto_in_name_of_town {
   my $node = shift;
   my $lemma = attr($node, 'lemma') // '';
+  my $ord = attr($node, 'ord') // '';
+  #mylog(0, "mesto_in_name_of_town: lemma '$lemma', ord '$ord'\n");
   if ($lemma !~ /^[Mm]ěsto$/) {
     return 0;
   }
-  my @town_sons = grep {$_ =~ /^(Touškov|Albrechtice|[Ss]tarý)/} $node->getAllChildren;
+  my @town_sons = grep {attr($_, 'lemma') =~ /^(Touškov|Albrechtice|[Ss]tarý)/} $node->getAllChildren;
   if (@town_sons) { # Město Albrechtice, Město Touškov, Staré Město
     return 1;
   }
-  @town_sons = grep {$_ =~ /^([Nn]ový|(Nn)ad|(Nn)a|[Pp]od)/} $node->getAllChildren;
-  if (scalar(@town_sons) > 1) { # Nové Město nad/na/pod ...
-    return 1;
+  my @town_sons_novy = grep {attr($_, 'lemma') =~ /^[Nn]ový/} $node->getAllChildren;
+  if (@town_sons_novy) { # 'Nový' among sons; now let us look for other parts...
+    #mylog(0, "mesto_in_name_of_town: - 'Nový' among sons.\n");    
+    my $town_son_novy = $town_sons_novy[0]; # měl bych tam pak nastavit gu, pokud se to potvrdí jako součást města
+    # for UD-like position of prepositions (i.e, noun depends on prep):
+    my @town_sons_prep = grep {attr($_, 'lemma') =~ /^([Nn]ad|[Nn]a|[Pp]od)/} $node->getAllChildren;
+    if (scalar(@town_sons_prep)) { # Nové Město nad/na/pod ...
+      foreach my $town_son_prep (@town_sons_prep) { # let us check that the remaining part is there
+        #mylog(0, "mesto_in_name_of_town: - a preposition among sons.\n");    
+        my @prep_sons_name = grep {attr($_, 'lemma') =~ /^(Morava|Metuje|[Ss]mrk)/} $town_son_prep->getAllChildren;
+        if (@prep_sons_name) { # OK, found the whole town name
+          #mylog(0, "mesto_in_name_of_town: - a rest of name among sons.\n");    
+          foreach my $prep_son_name (@prep_sons_name) {
+            check_and_add_NE_value_to_misc($prep_son_name, 'gu_1'); # tady všude by bylo lepší dát číslo podle zbytku názvu města
+          }
+          check_and_add_NE_value_to_misc($town_son_prep, 'gu_1');
+          check_and_add_NE_value_to_misc($town_son_novy, 'gu_1');
+          check_and_add_NE_value_to_misc($node, 'gu_1');
+          return 1;
+        }
+      }
+    }
+    # for PDT-like position of prepositions (i.e, prep depends on noun):
+    my @town_sons_name = grep {attr($_, 'lemma') =~ /^(Morava|Metuje|[Ss]mrk)/} $node->getAllChildren;
+      if (scalar(@town_sons_name)) { # Nové Město ... Moravou/Metují/Smrkem
+      #mylog(0, "mesto_in_name_of_town: - a rest of name among sons.\n");    
+      foreach my $town_son_name (@town_sons_name) { # let us check that the preposition is there
+        my @name_sons_prep = grep {attr($_, 'lemma') =~ /^([Nn]ad|[Nn]a|[Pp]od)/} $town_son_name->getAllChildren;
+        if (@name_sons_prep) { # OK, found the whole town name incl. the preposition
+          #mylog(0, "mesto_in_name_of_town: - a preposition among sons.\n");    
+          foreach my $name_son_prep (@name_sons_prep) {
+            check_and_add_NE_value_to_misc($name_son_prep, 'gu_1');
+          }
+          check_and_add_NE_value_to_misc($town_son_name, 'gu_1');
+          check_and_add_NE_value_to_misc($town_son_novy, 'gu_1');
+          check_and_add_NE_value_to_misc($node, 'gu_1');
+          return 1;
+        }        
+      }
+    }
   }
   return 0; 
 }
+
+
+=item check_and_add_NE_value_to_misc
+
+If the given NE value is not a part of NE in misc, add it there.
+
+=cut
+
+sub check_and_add_NE_value_to_misc {
+  my ($node, $value) = @_;
+  my $ne = get_misc_value($node, 'NE') // '';
+  my @values = ();
+  if ($ne) {
+    @values = $ne =~ /([A-Za-z][a-z_]?_[0-9]+)/g; # get an array of the classes with numeric indexes
+    if (!grep {$_ eq $value} @values) {
+      push(@values, $value);
+      my $new_NE = join('-', @values);
+      set_property($node, 'misc', 'NE', $new_NE);
+    }
+  }
+  else { # no prior NE misc value
+    set_property($node, 'misc', 'NE', $value);
+  }
+}
+
 
 
 =item sentence_with_court
