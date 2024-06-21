@@ -24,7 +24,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.59 20240617'; # version of the program
+my $VER = '0.60 20240621'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -82,17 +82,24 @@ $DESC .= <<END_DESC;
 </ul>
 END_DESC
 
-my $log_level = 0; # limited (0=full, 1=limited, 2=anonymous)
+my $logging_level = 2; # default log level, can be changed using the -ll parameter (0=full, 1=limited, 2=anonymous)
+
+my %logging_level_label = (0 => 'full', 1 => 'limited', 2 => 'anonymous');
 
 my $udpipe_service_url = 'http://lindat.mff.cuni.cz/services/udpipe/api';
 my $nametag_service_url = 'http://lindat.mff.cuni.cz/services/nametag/api';
+
+=item testing the hostname no longer needed, anonymous logging level is default
+
 my $hostname = hostname;
 if ($hostname eq 'maskit') { # if running at this server, use versions of udpipe and nametag that do not log texts
   $udpipe_service_url = 'http://udpipe:11001';
   $nametag_service_url = 'http://udpipe:11002';
   $VER .= ' (no text logging)';
-  $log_level = 2; # anonymous
+  $logging_level = 2; # anonymous
 }
+
+=cut
 
 #############################
 # Colours for html
@@ -148,6 +155,7 @@ my $output_statistics;
 my $store_format;
 my $store_statistics;
 my $log_states;
+my $logging_level_override;
 my $version;
 my $info;
 my $help;
@@ -167,11 +175,15 @@ GetOptions(
     'sf|store-format=s'      => \$store_format, # log the result in the given format: txt, html, conllu
     'ss|store-statistics'    => \$store_statistics, # should statistics be logged as an HTML file?
     'ls|log-states=s'        => \$log_states, # log intermediate states in CoNLL-U format for debugging; possible values (separated by a comma): UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), UN (after unification of single-word NEs) 
+    'll|logging-level=s'     => \$logging_level_override, # override the default (anonymous) logging level (0=full, 1=limited, 2=anonymous)
     'v|version'              => \$version, # print the version of the program and exit
     'n|info'                 => \$info, # print the info (program version and supported features) as JSON and exit
     'h|help'                 => \$help, # print a short help and exit
 );
 
+if (defined($logging_level_override)) {
+  $logging_level = $logging_level_override;
+}
 
 my $script_path = $0;  # Získá název spuštěného skriptu s cestou
 my $script_dir = dirname($script_path);  # Získá pouze adresář ze získané cesty
@@ -212,6 +224,7 @@ options:  -i|--input-file [input text file name]
          -ss|--store-statistics (log statistics to an HTML file)
          -ls|--log-states (log intermediate states in CoNLL-U format for debugging; possible values (separated by a comma):
                            UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), UN (after unification of single-word NEs) 
+         -ll|logging-level (override the default (anonymous) logging level (0=full, 1=limited, 2=anonymous))
           -v|--version (prints the version of the program and ends)
           -n|--info (prints the program version and supported features as JSON and ends)
           -h|--help (prints a short help and ends)
@@ -224,11 +237,12 @@ END_TEXT
 # Summarize the program arguments to the log (except for --version and --help)
 ###################################################################################
 
-mylog(2, "\n####################################################################\n");
-mylog(2, "MasKIT $VER\n");
+#mylog(2, "\n");
+mylog(2, "####################################################################\n");
+mylog(2, "MasKIT $VER (logging level: $logging_level - $logging_level_label{$logging_level})\n");
+mylog(2, "####################################################################\n");
 
 mylog(0, "Arguments:\n");
- 
 
 if ($stdin) {
   mylog(0, " - input: STDIN\n");
@@ -328,6 +342,12 @@ if ($log_states) {
   $print_log_states =~ s/,/, /g;
   mylog(0, " - log intermediate states in CoNLL-U format for debugging: $print_log_states\n");
 }
+
+if (defined($logging_level_override)) {
+  mylog(0, " - logging level override: $logging_level_override - $logging_level_label{$logging_level_override}\n");
+}
+
+
 
 mylog(0, "\n");
 
@@ -875,14 +895,14 @@ if ($store_format) { # log the anonymized text in the given format in a file
 
 =item log
 
-A function to print log (debug) info based on $log_level (0=full, 1=limited, 2=anonymous).
-The message only gets printed (to STDERR) if given $level is greater than or equal to global $log_level.
+A function to print log (debug) info based on $logging_level (0=full, 1=limited, 2=anonymous).
+The message only gets printed (to STDERR) if given $level is greater than or equal to global $logging_level.
 
 =cut
 
 sub mylog {
   my ($level, $msg) = @_;
-  if ($level >= $log_level) {
+  if ($level >= $logging_level) {
     print STDERR "maskit: $msg";
   }
 }
@@ -1056,6 +1076,12 @@ sub get_NameTag_marks {
     return 'nd'; # fake mark for the root of a vehicle registration number
   }
 
+  # remove 'gu' from 'město' if it is not a part of the town name
+  if ($lemma =~ /^[Mm]ěsto$/ and $marks =~ /\bgu\b/ and !mesto_in_name_of_town($node)) {
+    $marks = remove_from_marks_string($marks, 'gu');
+    mylog(0, "Removing mark 'gu' from '$lemma'.\n");
+  }
+    
   # hide 'hlavní' if dependent on 'město' and do not assign any tag to this 'město' 
   if ($lemma eq 'město') {
     my @sons_hlavni = grep {attr($_, 'lemma') eq 'hlavní'} $node->getAllChildren;
@@ -1228,6 +1254,40 @@ sub get_NameTag_marks {
     return undef;
   }
   return $marks;
+}
+
+
+=item mesto_in_name_of_town
+
+Returns 1 if the given node (with lemma 'město') is a part of a town name.
+
+List of towns in ČR with "město" in the name (https://www.wikiwand.com/cs/Seznam_m%C4%9Bst_v_%C4%8Cesku):
+
+Město Albrechtice
+Město Touškov
+Nové Město na Moravě
+Nové Město nad Metují
+Nové Město pod Smrkem
+Staré Město
+
+=cut
+  
+
+sub mesto_in_name_of_town {
+  my $node = shift;
+  my $lemma = attr($node, 'lemma') // '';
+  if ($lemma !~ /^[Mm]ěsto$/) {
+    return 0;
+  }
+  my @town_sons = grep {$_ =~ /^(Touškov|Albrechtice|[Ss]tarý)/} $node->getAllChildren;
+  if (@town_sons) { # Město Albrechtice, Město Touškov, Staré Město
+    return 1;
+  }
+  @town_sons = grep {$_ =~ /^([Nn]ový|(Nn)ad|(Nn)a|[Pp]od)/} $node->getAllChildren;
+  if (scalar(@town_sons) > 1) { # Nové Město nad/na/pod ...
+    return 1;
+  }
+  return 0; 
 }
 
 

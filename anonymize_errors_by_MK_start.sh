@@ -8,7 +8,7 @@ for FILE in data/errors_by_MK.txt; do
   echo >>err
 
   cat $FILE |\
-  ./system/maskit.pl --input-file $FILE --input-format txt --diff --named-entities 2 --log-states NT,UN --output-format txt --store-format conllu 2>>err
+  ./system/maskit.pl --input-file $FILE --input-format txt --diff --named-entities 2 --logging-level 0 --log-states NT,UN --output-format txt --store-format conllu 2>>err
 
 done
 
