@@ -1013,6 +1013,7 @@ sub get_NameTag_marks {
   # mylog(0, "get_NameTag_marks: $ne -> $marks\n");
 
   my $lemma = attr($node, 'lemma') // '';
+  my $form = attr($node, 'form') // '';
   my $upostag = attr($node, 'upostag') // '';
   
   my $parent = $node->getParent;
@@ -1062,6 +1063,11 @@ sub get_NameTag_marks {
   if ($marks =~ /\bps\b/ and $upostag eq 'DET') {
     $marks = remove_from_marks_string($marks, 'ps');
     mylog(0, "Removing mark 'ps' from a DET '$lemma'.\n");
+  }
+    
+  # Recover from NameTag wrongly marking "ČOV" or "ČOVka" (čistička odpadních vod) as 'if'
+  if ($lemma =~ /^(ČOV|čov|čovka)$/) { # čistička odpadních vod
+    $marks = remove_from_marks_string($marks, 'if');
   }
   
   # Birth registration number
