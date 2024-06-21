@@ -1179,7 +1179,7 @@ sub get_NameTag_marks {
     $marks = remove_from_marks_string($marks, 'p_');
   }
   
-  # underspecified personal names (p_) - for recall, we consider them surnames
+  # underspecified personal names (p_) - for recall, we consider them surnames (if its an abbreviation (Abbr=Yes in Feats), it gets processed as an abbreviation)
   if ($marks eq 'p_') {
     return 'ps';
   }

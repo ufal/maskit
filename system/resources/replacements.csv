@@ -57,6 +57,10 @@ pf	first_name_female	Gender=Fem|Case=Ins	Janou|Marií|Evou|Hanou|Annou|Lenkou|Ka
 
 # Surnames are grouped across gender, so they are twice as many (If I replace e.g. 'Horák' by 'Novák', I have to reserve 'Nováková' for 'Horáková'
 
+# surname (abbreviation)
+ps	surname_abbr	Abbr=Yes|ClassName	M-PŘÍJMENÍ-ZKRATKA
+ps	surname_abbr	Abbr=Yes	A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T
+
 # surnames (male)
 ps	surname	Gender=Masc|ClassName	M-MUŽ-PŘÍJMENÍ
 ps	surname	Gender=Masc|Case=Nom	Novák|Svoboda|Novotný|Dvořák|Černý|Procházka|Kučera|Veselý|Horák|Němec|Pospíšil|Pokorný|Hájek|Král|Jelínek|Růžička|Beneš|Fiala|Sedláček|Doležal
