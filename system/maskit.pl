@@ -24,7 +24,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.60 20240621'; # version of the program
+my $VER = '0.61 20240626'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -174,7 +174,7 @@ GetOptions(
     'os|output-statistics'   => \$output_statistics, # adds statistics to the output; if present, output is JSON with two items: data (in output-format) and stats (in HTML)
     'sf|store-format=s'      => \$store_format, # log the result in the given format: txt, html, conllu
     'ss|store-statistics'    => \$store_statistics, # should statistics be logged as an HTML file?
-    'ls|log-states=s'        => \$log_states, # log in´termediate states in CoNLL-U format for debugging; possible values (separated by a comma): UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), UN (after unification of single-word NEs) 
+    'ls|log-states=s'        => \$log_states, # log in´termediate states in CoNLL-U format for debugging; possible values (separated by a comma): UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), FN (after fixing NameTag errors), UN (after unification of single-word NEs) 
     'll|logging-level=s'     => \$logging_level_override, # override the default (anonymous) logging level (0=full, 1=limited, 2=anonymous)
     'v|version'              => \$version, # print the version of the program and exit
     'n|info'                 => \$info, # print the info (program version and supported features) as JSON and exit
@@ -223,7 +223,8 @@ options:  -i|--input-file [input text file name]
          -sf|--store-format [format: log the output in the given format: txt, html, conllu]
          -ss|--store-statistics (log statistics to an HTML file)
          -ls|--log-states (log intermediate states in CoNLL-U format for debugging; possible values (separated by a comma):
-                           UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), UN (after unification of single-word NEs) 
+                           UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), FN (after fixing NameTag errors),
+                           UN (after unification of single-word NEs) 
          -ll|logging-level (override the default (anonymous) logging level (0=full, 1=limited, 2=anonymous))
           -v|--version (prints the version of the program and ends)
           -n|--info (prints the program version and supported features as JSON and ends)
@@ -338,6 +339,7 @@ if ($log_states) {
   $print_log_states =~ s/\bUD\b/after UDPipe/g;
   $print_log_states =~ s/\bNT\b/after NameTag/g;
   $print_log_states =~ s/\bPA\b/after parsing to Tree::Simple/g;
+  $print_log_states =~ s/\bFN\b/after fixing NameTag errors/g;
   $print_log_states =~ s/\bUN\b/after unification of single-word NEs/g;
   $print_log_states =~ s/,/, /g;
   mylog(0, " - log intermediate states in CoNLL-U format for debugging: $print_log_states\n");
@@ -594,6 +596,71 @@ if ($log_states and $log_states =~ /\bPA\b/) {
 
 ###########################################################################################
 # Now we have dependency trees of the sentences
+###########################################################################################
+
+
+###########################################################################################
+# Let us correct errors made by NameTag regarding expressions with 'Město'
+###########################################################################################
+
+mylog(1, "\n");
+mylog(1, "====================================================================\n");
+mylog(1, "Going to fix NameTag errors in multiword expressions with 'Město'.\n");
+mylog(1, "====================================================================\n");
+
+my $sentence_count = 0;
+
+foreach $root (@trees) {
+
+  my $sentence_id = attr($root, 'id') // '';
+  # mylog(0, "\n====================================================================\n");
+  # mylog(0, "Sentence id=$sentence_id: " . attr($root, 'text') . "\n");
+  # print_children($root, "\t");
+  
+  my @nodes = descendants($root);
+  foreach my $node (@nodes) {
+  
+    my $lemma = attr($node, 'lemma') // 'nolemma';
+    my @values = get_NE_values($node);
+    my $marks = join '~', @values;
+
+    # remove 'if' from 'město'
+    if ($lemma =~ /^[Mm]ěsto$/ and $marks =~ /\bif\b/) {
+      remove_NE_value_from_misc($node, 'if');
+      mylog(0, "Removing mark 'if' from '$lemma' in sentence with id '$sentence_id'.\n");
+    }
+
+    # remove 'gu' from 'město' if it is not a part of the town name
+    if ($lemma =~ /^[Mm]ěsto$/ and $marks =~ /\bgu\b/ and !mesto_in_name_of_town($node)) {
+      remove_NE_value_from_misc($node, 'gu');
+      mylog(0, "Removing mark 'gu' from '$lemma' in sentence with id '$sentence_id'.\n");
+    }
+
+    my $NE_id;
+    # also, add 'gu' to 'město' if it is not there but it is a part of the town name
+    if ($lemma =~ /^[Mm]ěsto$/ and $marks !~ /\bgu\b/ and $NE_id=mesto_in_name_of_town($node)) {
+      remove_NE_value_from_misc($node, 'gu');
+      check_and_add_NE_value_to_misc($node, "gu_$NE_id");
+      mylog(0, "Adding mark 'gu_$NE_id' to '$lemma' in sentence with id '$sentence_id'.\n");
+    }
+  }
+}
+
+mylog(1, "\n");
+mylog(1, "====================================================================\n");
+mylog(1, "Finished fixing NameTag errors in multiword expressions with 'Město'.\n");
+mylog(1, "====================================================================\n");
+
+# Export the modified trees to a file (for debugging, not needed for further processing)
+if ($log_states and $log_states =~ /\bFN\b/) {
+  open(OUT, '>:encoding(utf8)', "$input_file.FN.conllu") or die "Cannot open file '$input_file.FN.conllu' for writing: $!";
+  my $conll_fix_nametag_export = get_output('conllu');
+  print OUT $conll_fix_nametag_export;
+  close(OUT);
+}
+
+
+###########################################################################################
 # Let us find all marks for recognized single-word named entities.
 # Afterwards, we unify the marks if they differ for various instances.
 # E.g., ...
@@ -1082,6 +1149,8 @@ sub get_NameTag_marks {
     return 'nd'; # fake mark for the root of a vehicle registration number
   }
 
+=item
+
   # remove 'gu' from 'město' if it is not a part of the town name;
   if ($lemma =~ /^[Mm]ěsto$/ and $marks =~ /\bgu\b/ and !mesto_in_name_of_town($node)) {
     $marks = remove_from_marks_string($marks, 'gu');
@@ -1093,6 +1162,8 @@ sub get_NameTag_marks {
     $marks .= '~gu';
     mylog(0, "Adding mark 'gu' to '$lemma'.\n");
   }
+
+=cut
 
   # hide 'hlavní' if dependent on 'město' and do not assign any tag to this 'město' 
   if ($lemma eq 'město') {
@@ -1297,9 +1368,17 @@ sub mesto_in_name_of_town {
   if ($lemma !~ /^[Mm]ěsto$/) {
     return 0;
   }
+  my $NE_id; # find the numeric id of this named entity (e.g., 23 from 'gu_23')
   my @town_sons = grep {attr($_, 'lemma') =~ /^(Touškov|Albrechtice|[Ss]tarý)/} $node->getAllChildren;
   if (@town_sons) { # Město Albrechtice, Město Touškov, Staré Město
-    return 1;
+    $NE_id = get_first_NE_id('gu', @town_sons); # find the numeric id
+    if (!$NE_id) {
+      $NE_id = 1; # some stupid default !!!
+      foreach my $town_son_name (@town_sons) {
+        check_and_add_NE_value_to_misc($town_son_name, "gu_$NE_id");
+      }
+    }
+    return $NE_id;
   }
   my @town_sons_novy = grep {attr($_, 'lemma') =~ /^[Nn]ový/} $node->getAllChildren;
   if (@town_sons_novy) { # 'Nový' among sons; now let us look for other parts...
@@ -1313,17 +1392,24 @@ sub mesto_in_name_of_town {
       foreach my $town_son_name (@town_sons_name) { # let us check that the preposition is there
         my @name_sons_prep = grep {attr($_, 'lemma') =~ /^([Nn]ad|[Nn]a|[Pp]od)/} $town_son_name->getAllChildren;
         if (@name_sons_prep) { # OK, found the whole town name incl. the preposition
-          #mylog(0, "mesto_in_name_of_town: - a preposition among sons.\n");    
+          #mylog(0, "mesto_in_name_of_town: - a preposition among sons.\n");
+          $NE_id = get_first_NE_id('gu', @town_sons_novy, @town_sons_name) // 1; # find the numeric id (or use some stupid default !!!)
           foreach my $name_son_prep (@name_sons_prep) {
-            check_and_add_NE_value_to_misc($name_son_prep, 'gu_1');
+            remove_NE_value_from_misc($name_son_prep, 'gu');
+            check_and_add_NE_value_to_misc($name_son_prep, "gu_$NE_id");
           }
-          check_and_add_NE_value_to_misc($town_son_name, 'gu_1');
-          check_and_add_NE_value_to_misc($town_son_novy, 'gu_1');
-          check_and_add_NE_value_to_misc($node, 'gu_1');
-          return 1;
+          remove_NE_value_from_misc($town_son_name, 'gu');
+          check_and_add_NE_value_to_misc($town_son_name, "gu_$NE_id");
+          remove_NE_value_from_misc($town_son_novy, 'gu');
+          check_and_add_NE_value_to_misc($town_son_novy, "gu_$NE_id");
+          #remove_NE_value_from_misc($node, 'gu');
+          #check_and_add_NE_value_to_misc($node, "gu_$NE_id");
+          return $NE_id;
         }        
       }
     }
+
+=item
 
     # for PDT-like position of prepositions (i.e, noun depends on prep): (probably useless, the data are parsed in UD style)
     my @town_sons_prep = grep {attr($_, 'lemma') =~ /^([Nn]ad|[Nn]a|[Pp]od)/} $node->getAllChildren;
@@ -1343,11 +1429,36 @@ sub mesto_in_name_of_town {
         }
       }
     }
-    
+
+=cut
+
   }
   return 0; 
 }
 
+
+=item get_first_NE_id
+
+Given a NameTag mark (e.g., 'gu'), find its first occurrence among the given nodes and return the number it has attached (e.g., 23 for 'gu_23'). If not found, return undef.
+
+=cut
+
+sub get_first_NE_id {
+  my ($mark, @nodes) = @_;
+  foreach my $node (@nodes) {
+    my $ne = get_misc_value($node, 'NE') // '';
+    my @values = ();
+    if ($ne) {
+      @values = $ne =~ /([A-Za-z][a-z_]?_[0-9]+)/g; # get an array of the classes with numeric indexes
+      foreach my $value (@values) {
+        if ($value =~ /^($mark)_(\d+)$/) {
+          return $2;
+        }
+      }
+    }
+  } 
+  return undef;
+}
 
 =item check_and_add_NE_value_to_misc
 
@@ -1372,6 +1483,24 @@ sub check_and_add_NE_value_to_misc {
   }
 }
 
+
+=item remove_NE_value_from_misc
+
+Remove the given NE value from misc (if present).
+
+=cut
+
+sub remove_NE_value_from_misc {
+  my ($node, $value) = @_;
+  my $ne = get_misc_value($node, 'NE') // '';
+  my @values = ();
+  if ($ne) {
+    @values = $ne =~ /([A-Za-z][a-z_]?_[0-9]+)/g; # get an array of the classes with numeric indexes
+    my @new_values = grep {$_ !~ /^$value/} @values;
+    my $new_NE = join('-', @new_values);
+    set_property($node, 'misc', 'NE', $new_NE);
+  }
+}
 
 
 =item sentence_with_court
@@ -2395,7 +2524,9 @@ sub set_property {
   my $orig_value = attr($node, $attr) // '';
   # mylog(0, "set_property: orig_value: '$orig_value'\n");
   my @values = grep {$_ !~ /^$property\b/} grep {$_ ne ''} grep {defined} split('\|', $orig_value);
-  push(@values, "$property=$value");
+  if ($value) { # if $value is empty, the property name shouldn't be mentioned at all
+    push(@values, "$property=$value");
+  }
   my @sorted = sort @values;
   my $new_value = join('|', @sorted);
   set_attr($node, $attr, $new_value);
