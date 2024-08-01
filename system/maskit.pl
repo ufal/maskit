@@ -24,7 +24,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.61 20240626'; # version of the program
+my $VER = '0.62 20240801'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -174,7 +174,7 @@ GetOptions(
     'os|output-statistics'   => \$output_statistics, # adds statistics to the output; if present, output is JSON with two items: data (in output-format) and stats (in HTML)
     'sf|store-format=s'      => \$store_format, # log the result in the given format: txt, html, conllu
     'ss|store-statistics'    => \$store_statistics, # should statistics be logged as an HTML file?
-    'ls|log-states=s'        => \$log_states, # log in´termediate states in CoNLL-U format for debugging; possible values (separated by a comma): UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), FN (after fixing NameTag errors), UN (after unification of single-word NEs) 
+    'ls|log-states=s'        => \$log_states, # log intermediate states in CoNLL-U format for debugging; possible values (separated by a comma): UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), FN (after fixing NameTag errors), UN (after unification of single-word NEs) 
     'll|logging-level=s'     => \$logging_level_override, # override the default (anonymous) logging level (0=full, 1=limited, 2=anonymous)
     'v|version'              => \$version, # print the version of the program and exit
     'n|info'                 => \$info, # print the info (program version and supported features) as JSON and exit
@@ -1308,6 +1308,18 @@ sub get_NameTag_marks {
     }
   }
 
+  # Street number
+  if (is_street_number($node)) {
+    if ($marks !~ /\bah\b/) { # looks like a street number but was not recognized by NameTag
+      if (!$marks) { # nothing was recognized by NameTag
+        return 'ah'; # street/square
+      }
+      else {
+        $marks .= '~ah';
+      }
+    }
+  }
+
   # Urban part
   if (is_urban_part($node)) {
     if ($marks !~ /\bgq\b/) { # looks like a street name but was not recognized by NameTag
@@ -2361,6 +2373,49 @@ sub is_street_name {
           return 1;
         }
       }
+    }
+  }
+  return 0;
+}
+
+
+=item
+
+Returns 1 if the given node appears to be a street number. Otherwise returns 0.
+The function only aims at a single configuration witnessed as not recognized by NameTag.
+Technically, it returns 1 if:
+- its upostag is NUM
+- it transitively depends on a node with lemma 'ulice' or 'náměstí' etc. or a node with NameTag mark 'gs', with only these types of nodes inbetween:
+   - upostag NUM
+   - lemma 'číslo'
+
+=cut
+
+sub is_street_number {
+  my $node = shift;
+  my $upostag = attr($node, 'upostag');
+  if ($upostag !~ /^(NUM)$/) { # not a number
+    return 0;
+  }
+  mylog(0, "is_street_number: it is a number: " . attr($node, 'form') . ".\n");
+  my $parent = $node->getParent;
+  while ($parent) {
+    my $parent_lemma = attr($parent, 'lemma') // '';
+    mylog(0, "is_street_number: parent_lemma is: '$parent_lemma'.\n");
+    if ($parent_lemma =~ /^(ulice|náměstí|nábřeží)$/) {
+      return 1;
+    }
+    my @parent_nametag_gs = grep {/gs/} get_NE_values($parent);
+    if (@parent_nametag_gs) {
+      return 1;
+    }
+    my $parent_upostag = attr($parent, 'upostag') // '';
+    mylog(0, "is_street_number: parent_upostag is: '$parent_upostag'.\n");
+    if ($parent_upostag eq 'NUM' or $parent_lemma eq 'číslo') {
+      $parent = $parent->getParent;
+    }
+    else {
+      return 0;
     }
   }
   return 0;
