@@ -190,7 +190,7 @@ my $script_dir = dirname($script_path);  # Získá pouze adresář ze získané 
 
 
 if ($version) {
-  print "Anonymizer version $VER.\n";
+  print "MasKIT version $VER.\n";
   exit 0;
 }
 
@@ -346,7 +346,7 @@ if ($log_states) {
 }
 
 if (defined($logging_level_override)) {
-  mylog(0, " - logging level override: $logging_level_override - $logging_level_label{$logging_level_override}\n");
+  mylog(2, " - logging level override: $logging_level_override - $logging_level_label{$logging_level_override}\n");
 }
 
 
