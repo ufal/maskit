@@ -225,7 +225,7 @@ options:  -i|--input-file [input text file name]
          -ls|--log-states (log intermediate states in CoNLL-U format for debugging; possible values (separated by a comma):
                            UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), FN (after fixing NameTag errors),
                            UN (after unification of single-word NEs) 
-         -ll|logging-level (override the default (anonymous) logging level (0=full, 1=limited, 2=anonymous))
+         -ll|--logging-level (override the default (anonymous) logging level (0=full, 1=limited, 2=anonymous))
           -v|--version (prints the version of the program and ends)
           -n|--info (prints the program version and supported features as JSON and ends)
           -h|--help (prints a short help and ends)
