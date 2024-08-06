@@ -24,7 +24,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.62 20240801'; # version of the program
+my $VER = '0.63 20240806'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -2152,12 +2152,20 @@ Technically, it returns 1 if:
   - its parent is lemma číslo/č and among the parent's sons there is lemma jednací/j
   - or its parent is lemma j and among its sons there is lemma číslo/č
 
+For exceptionally wrong parses, it also checks if it is linearly (independently of the tree) preceeded by "č.j." or "č.j.:" etc., followed by a space and then anything that does not contain a space (e.g., "č.j.: UZSVM/HUO/3222/2008-HUOM").  
+
 =cut
 
 sub is_agenda_ref_number {
   my $node = shift;
+
+  if (linearly_preceded_by_c_j($node)) { # new addition - linear precedence by č.j. etc.
+    return 1;
+  }
+  
   my $form = attr($node, 'form') // '';
   my $deprel = attr($node, 'deprel') // '';
+
   if ($form =~ /^\d+$/) { # a number
     my $parent = $node->getParent;
     return 0 if !$parent;
@@ -2179,6 +2187,60 @@ sub is_agenda_ref_number {
   return 0;
 }
 
+
+=item
+
+For exceptionally wrong parses of agenda reference numbers (čísla jednací), it checks if it is linearly (independently of the tree) preceeded by "č.j." or "č.j.:" etc., followed by a space and then anything that does not contain a space (e.g., "č.j.: UZSVM/HUO/3222/2008-HUOM").  
+Called from is_agenda_ref_number.
+
+=cut
+
+sub linearly_preceded_by_c_j {
+  my $node = shift;
+  mylog(0, "linearly_preceded_by_c_j: Entering the function\n");
+  my $root = root($node);
+  my @nodes_linear_backwards = sort {attr($b, 'ord') <=> attr($a, 'ord')} descendants($root); # backwards order
+  my $found_my_node = 0;
+  my $found_jednaci = 0;
+  foreach my $n (@nodes_linear_backwards) {
+    if ($n eq $node) {
+      $found_my_node = 1;
+      next;
+    }
+    if (!$found_my_node) {
+      next; # still looking for my $node
+    }
+    # my $node has already been found
+    my $lemma = attr($n, 'lemma') // '';
+    my $form = attr($n, 'form') // '';
+    mylog(0, "linearly_preceded_by_c_j:   - my node found, actual node: $lemma\n");
+    my $SpaceAfter = get_misc_value($n, 'SpaceAfter') // '';
+    if ($lemma eq '.' or $lemma eq ':' or ($SpaceAfter eq 'No' and $form ne 'j' and $form ne 'č' and $lemma ne 'jednací' and $lemma ne 'číslo')) { # skip previous parts of the agenda reference number or ":" (and ".") in "č.j.:"
+      mylog(0, "linearly_preceded_by_c_j:     - no space after or '.' or ':'\n");
+      next;
+    }
+    if (!$found_jednaci) { # 'jednací' not yet found
+    # now there should be "j" or "jednací"
+      if ($lemma eq 'jednací' or $form eq 'j') {
+        mylog(0, "linearly_preceded_by_c_j:     - found 'jednací'!\n");
+        $found_jednaci = 1;
+        next;
+      }
+      else { # there should be 'jednací', giving up
+        last;
+      }
+    }
+    # 'jednací' has already been found
+    if ($lemma eq '.') {
+      next; # skip '.' in 'č.'
+    }
+    if ($lemma eq 'číslo' or $form eq 'č') {
+      return 1;
+    }
+    last; # there should be 'číslo', giving up
+  }
+  return 0;
+}
 
 =item
 
@@ -2919,7 +2981,7 @@ END_OUTPUT_HEAD
 
   my $space_before = ''; # for storing info about SpaceAfter until the next token is printed
 
-  foreach $root (@trees) {
+  foreach my $root (@trees) {
 
 #=item 
 
