@@ -875,7 +875,7 @@ foreach $root (@trees) {
     my $tag = attr($node, 'xpostag') // '';
     my $form = attr($node, 'form') // '';
     my $feats = attr($node, 'feats') // '';
-    my $classes = get_NameTag_marks($node) // '';
+    my $classes = get_NameTag_marks($node, 1) // '';
 
     # Check if the node is a part of a multiword expression (e.g., a multiword street name) hidden by its predecessor (i.e., by the root of the multiword expr.)
     my $hidden = attr($node, 'hidden') // '';
@@ -1061,6 +1061,8 @@ sub check_constraint {
 =item get_NameTag_marks
 
 Get a list of NameTag marks assigned to the given node; the return value is a string of the marks divided by '~'.
+The second argument says if attribute hidden should be set.
+
 Fake marks are assigned for cases not recognized by NameTag:
 
 ax - the first part (three digits) of a ZIP code
@@ -1227,7 +1229,7 @@ sub get_NameTag_marks {
 
   # ZIP codes
   if ($lemma =~ /^[1-9][0-9][0-9]$/ and $marks =~ /\ba[zt]\b/) { # looks like the first part of a ZIP code
-    my @ZIP2_children = grep {attr($_, 'lemma') =~ /^[0-9][0-9]$/ and get_NameTag_marks($_) eq 'ay' } $node->getAllChildren;
+    my @ZIP2_children = grep {attr($_, 'lemma') =~ /^[0-9][0-9]$/ and get_NameTag_marks($_, $hide) eq 'ay' } $node->getAllChildren;
     if (scalar(@ZIP2_children) == 1) { # it really looks like a ZIP code
       return 'ax'; # a fake class for the first part of a ZIP code
     }
@@ -1306,7 +1308,7 @@ sub get_NameTag_marks {
   }
 
   # agenda reference number (číslo jednací)
-  if (is_agenda_ref_number($node)) {
+  if (is_agenda_ref_number($node, $hide)) {
     return 'nr'; # fake mark for agenda reference number
   }
 
@@ -2171,9 +2173,9 @@ For exceptionally wrong parses, it also checks if it is linearly (independently 
 =cut
 
 sub is_agenda_ref_number {
-  my $node = shift;
+  my ($node, $hide) = @_;
 
-  if (linearly_preceded_by_c_j($node)) { # new addition - linear precedence by č.j. etc.
+  if (linearly_preceded_by_c_j($node, $hide)) { # new addition - linear precedence by č.j. etc.
     return 1;
   }
   
@@ -2210,9 +2212,18 @@ Called from is_agenda_ref_number.
 =cut
 
 sub linearly_preceded_by_c_j {
-  my $node = shift;
-  #mylog(0, "linearly_preceded_by_c_j: Entering the function\n");
+  my ($node, $hide) = @_;
+  #mylog(0, "linearly_preceded_by_c_j: Entering the function with node " . attr($node, 'lemma') . "\n");
+  my $SpaceAfter = get_misc_value($node, 'SpaceAfter') // '';
+
+  if ($SpaceAfter eq 'No') { # This means the potential agenda reference number may continue on the right
+    my $right = attr($node, 'right'); # check the right node - it may be a full stop or a comma, which would suggest a clause end
+    if ($right and attr($right, 'lemma') !~ /^[.,]$/) { # not the left-right last node in the potential agenda reference number; waiting for entering the function with the left-right last word.
+      return 0;
+    }
+  }
   my $orig_node = $node;
+  
   my $first_agenda_ref_number_node = undef; # all nodes from the first one need to be hidden with reference to the orig_node
   my $within_no_space_after_region = 1;
 
@@ -2256,10 +2267,14 @@ sub linearly_preceded_by_c_j {
       next; # skip '.' in 'č.'
     }
     if ($lemma eq 'číslo' or $form eq 'č') {
+      #mylog(0, "linearly_preceded_by_c_j:     - found 'číslo'!\n");
       if ($first_agenda_ref_number_node) {
-        while ($first_agenda_ref_number_node ne $orig_node) { # hide all nodes of the agenda ref number under the last of them (so far last)
-          set_attr($first_agenda_ref_number_node, 'hidden', attr($orig_node, 'ord'));
-          $first_agenda_ref_number_node = attr($first_agenda_ref_number_node, 'right');
+        if ($hide) {
+          while ($first_agenda_ref_number_node ne $orig_node) { # hide all nodes of the agenda ref number under the last of them (so far last)
+            #mylog(0, "linearly_preceded_by_c_j:       - setting 'hidden' to " . attr($first_agenda_ref_number_node, 'lemma') . " to " . attr($orig_node, 'lemma') . " (" . attr($orig_node, 'ord') . ")\n");
+            set_attr($first_agenda_ref_number_node, 'hidden', attr($orig_node, 'ord'));
+            $first_agenda_ref_number_node = attr($first_agenda_ref_number_node, 'right');
+          }
         }
         return 1;
       }
@@ -2559,7 +2574,7 @@ sub get_multiword_recursive {
   my @recursive_name_parts = ();
   #mylog(0, "get_multiword_recursive: Entering the function with node '" . attr($node, 'form') . "' and class '$class'\n");
   if ($class eq 'gs') { # a street name
-    @name_parts = grep {grep {/gs/} grep {defined} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case)/}
+    @name_parts = grep {grep {/gs/} grep {defined} get_NameTag_marks($_, 0) and attr($_, 'deprel') =~ /(amod|nmod|flat|case)/}
                   grep {attr($_, 'form') ne 'PSČ'}
                   grep {attr($_, 'form') ne 'IČO'}
                   grep {attr($_, 'form') ne 'IČ'}
@@ -2577,7 +2592,7 @@ sub get_multiword_recursive {
     }
   }
   elsif ($class eq 'gu' or $class eq 'gq') { # a town / town part
-    @name_parts = grep {grep {/(gu|gq)/} grep {defined} get_NameTag_marks($_) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/}
+    @name_parts = grep {grep {/(gu|gq)/} grep {defined} get_NameTag_marks($_, 0) and attr($_, 'deprel') =~ /(amod|nmod|flat|case|nummod)/}
                   grep {attr($_, 'form') ne 'PSČ'}
                   grep {attr($_, 'form') ne 'IČO'}
                   grep {attr($_, 'form') ne 'IČ'}
@@ -3072,7 +3087,7 @@ END_OUTPUT_HEAD
       # COLLECT INFO ABOUT THE TOKEN
       my $replacement = attr($node, 'replacement');
       my $form = $replacement // attr($node, 'form');
-      my $classes = get_NameTag_marks($node) // '';
+      my $classes = get_NameTag_marks($node, 0) // '';
 
       my $span_start = '';
       my $span_end = '';
@@ -3262,26 +3277,16 @@ END_OUTPUT_HEAD
 
 =item get_original
 
-Returns the original form of this node. Usually it is just attr($node, 'form') but sometimes it contains also hidden nodes from the subtree pointing to this node.
+Returns the original form of this node. Usually it is just attr($node, 'form') but sometimes it contains also hidden nodes from the same tree (not necessarily only from the subtree) pointing to this node.
 
 =cut
 
 sub get_original {
   my $node = shift;
   my $ord = attr($node, 'ord');
-  my @hidden_descendants = grep {attr($_, 'hidden') and attr($_, 'hidden') eq $ord} descendants($node);
-  # for cases when the hidden structure has more roots (as it happens with SPZ), check siblings and their descendants
-  my $parent = $node->getParent;
-  if ($parent) {
-    my @hidden_siblings = grep {attr($_, 'hidden') and attr($_, 'hidden') eq $ord} $parent->getAllChildren;
-    foreach my $hidden_sibling (@hidden_siblings) { # add their hidden descendants and themselves
-      my @hidden_sibling_hidden_descendants = grep {attr($_, 'hidden') and attr($_, 'hidden') eq $ord} descendants($hidden_sibling);
-      push(@hidden_descendants, @hidden_sibling_hidden_descendants);
-      push(@hidden_descendants, $hidden_sibling);
-    }
-  }
-  push(@hidden_descendants, $node);
-  return surface_text(@hidden_descendants);
+  my @hidden_nodes = grep {attr($_, 'hidden') and attr($_, 'hidden') eq $ord} descendants(root($node));
+  push(@hidden_nodes, $node);
+  return surface_text(@hidden_nodes);
 }
 
 
@@ -3430,13 +3435,21 @@ sub attr {
   return $$refha_props{$attr};
 }
 
+=item descendants
+
+Returns all descendants of the given node in the dfo; on the same level, the nodes are sorted by attribute 'ord'
+
+=cut
+
 sub descendants {
   my $node = shift;
-  my @children = $node->getAllChildren;
-  foreach my $child ($node->getAllChildren) {
-    push (@children, descendants($child));
+  my @descendants = ();
+  my @children = sort {attr($a, 'ord') <=> attr($b, 'ord')} $node->getAllChildren;
+  foreach my $child (@children) {
+    push(@descendants, $child);
+    push(@descendants, descendants($child));
   }
-  return @children;
+  return @descendants;
 }
   
 sub root {
