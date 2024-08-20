@@ -24,7 +24,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.63 20240806'; # version of the program
+my $VER = '0.64 20240820'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -584,6 +584,20 @@ if ($root) {
 }
 # end of Jan Štěpánek's modified cycle for reading UD CONLL
 
+# Now let us add pointers to immediately left and right nodes in the sentence surface order
+
+foreach my $tree (@trees) {
+  my @ordered_nodes = sort {attr($a, 'ord') <=> attr($b, 'ord')} descendants($tree);
+  my $prev_node = undef;
+  foreach my $node (@ordered_nodes) {
+    set_attr($node, 'left', $prev_node);
+    if ($prev_node) {
+      set_attr($prev_node, 'right', $node);
+    }
+    $prev_node = $node;
+  }
+  set_attr($ordered_nodes[-1], 'right', undef);
+}
 
 # Export the parsed trees to a file (for debugging, not needed for further processing)
 if ($log_states and $log_states =~ /\bPA\b/) {
@@ -1074,7 +1088,7 @@ tl - day and month of death (if written without a space and therefore parsed as 
 =cut
 
 sub get_NameTag_marks {
-  my $node = shift;
+  my ($node, $hide) = @_;
   my @values = get_NE_values($node);
   my $marks = join '~', @values;
   # mylog(0, "get_NameTag_marks: $ne -> $marks\n");
@@ -2197,33 +2211,39 @@ Called from is_agenda_ref_number.
 
 sub linearly_preceded_by_c_j {
   my $node = shift;
-  mylog(0, "linearly_preceded_by_c_j: Entering the function\n");
-  my $root = root($node);
-  my @nodes_linear_backwards = sort {attr($b, 'ord') <=> attr($a, 'ord')} descendants($root); # backwards order
-  my $found_my_node = 0;
+  #mylog(0, "linearly_preceded_by_c_j: Entering the function\n");
+  my $orig_node = $node;
+  my $first_agenda_ref_number_node = undef; # all nodes from the first one need to be hidden with reference to the orig_node
+  my $within_no_space_after_region = 1;
+
   my $found_jednaci = 0;
-  foreach my $n (@nodes_linear_backwards) {
-    if ($n eq $node) {
-      $found_my_node = 1;
-      next;
+  $node = attr($node, 'left');
+  while ($node) {
+    my $lemma = attr($node, 'lemma') // '';
+    my $form = attr($node, 'form') // '';
+    #mylog(0, "linearly_preceded_by_c_j:   - inspecting node: $lemma\n");
+    my $SpaceAfter = get_misc_value($node, 'SpaceAfter') // '';
+    if ($SpaceAfter ne 'No') {
+      $within_no_space_after_region = 0;
     }
-    if (!$found_my_node) {
-      next; # still looking for my $node
+    #if ($within_no_space_after_region and $SpaceAfter eq 'No' and $form ne 'j' and $form ne 'č' and $lemma ne 'jednací' and $lemma ne 'číslo') { # skip previous parts of the agenda reference number
+    if ($within_no_space_after_region) { # skip all parts of the agenda reference number
+      $first_agenda_ref_number_node = $node; # so far the leftmost part of the agenda reference number
+      #mylog(0, "linearly_preceded_by_c_j:     - no space after\n");
+      $node = attr($node, 'left');
+      next;      
     }
-    # my $node has already been found
-    my $lemma = attr($n, 'lemma') // '';
-    my $form = attr($n, 'form') // '';
-    mylog(0, "linearly_preceded_by_c_j:   - my node found, actual node: $lemma\n");
-    my $SpaceAfter = get_misc_value($n, 'SpaceAfter') // '';
-    if ($lemma eq '.' or $lemma eq ':' or ($SpaceAfter eq 'No' and $form ne 'j' and $form ne 'č' and $lemma ne 'jednací' and $lemma ne 'číslo')) { # skip previous parts of the agenda reference number or ":" (and ".") in "č.j.:"
-      mylog(0, "linearly_preceded_by_c_j:     - no space after or '.' or ':'\n");
+    if ($lemma eq '.' or $lemma eq ':') { # skip ":" (and ".") in "č.j.:"
+      #mylog(0, "linearly_preceded_by_c_j:     - '.' or ':'\n");
+      $node = attr($node, 'left');
       next;
     }
     if (!$found_jednaci) { # 'jednací' not yet found
     # now there should be "j" or "jednací"
       if ($lemma eq 'jednací' or $form eq 'j') {
-        mylog(0, "linearly_preceded_by_c_j:     - found 'jednací'!\n");
+        #mylog(0, "linearly_preceded_by_c_j:     - found 'jednací'!\n");
         $found_jednaci = 1;
+        $node = attr($node, 'left');
         next;
       }
       else { # there should be 'jednací', giving up
@@ -2232,10 +2252,17 @@ sub linearly_preceded_by_c_j {
     }
     # 'jednací' has already been found
     if ($lemma eq '.') {
+      $node = attr($node, 'left');
       next; # skip '.' in 'č.'
     }
     if ($lemma eq 'číslo' or $form eq 'č') {
-      return 1;
+      if ($first_agenda_ref_number_node) {
+        while ($first_agenda_ref_number_node ne $orig_node) { # hide all nodes of the agenda ref number under the last of them (so far last)
+          set_attr($first_agenda_ref_number_node, 'hidden', attr($orig_node, 'ord'));
+          $first_agenda_ref_number_node = attr($first_agenda_ref_number_node, 'right');
+        }
+        return 1;
+      }
     }
     last; # there should be 'číslo', giving up
   }
