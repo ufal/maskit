@@ -48,7 +48,7 @@ handling.</p>
 <tr><th>Parameter</th><th>Mandatory</th><th>Data type</th><th>Description</th></tr>
 <tr><td>text</td><td>yes</td><td>string</td><td>Input text in <b>UTF-8</b>.</td></tr>
 <tr><td>input</td><td>no</td><td>string</td><td>Input format; possible values: <code>txt</code> (default), <code>presegmented</code>, see <a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_input" target="_blank">input format</a> for details.</td></tr>
-<tr><td>output</td><td>no</td><td>string</td><td>Output format; possible values: <code>txt</code> (default), <code>html</code>, <code>conllu</code>, see <a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank">output format</a> for details.</td></tr>
+<tr><td>output</td><td>no</td><td>string</td><td>Output format; possible values: <code>txt</code> (default), <code>html</code>, see <a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank">output format</a> for details.</td></tr>
 <tr><td>randomize</td><td>no</td><td>N/A</td><td>If present, the replacements are selected in random order.</td></tr>
 <tr><td>classes</td><td>no</td><td>N/A</td><td>If present, classes (instead of fake names) are used as replacements.</td></tr>
 </table>
@@ -61,13 +61,15 @@ following structure:</p>
 
 <pre class="prettyprint lang-json">
 {
+ "message": "overview_message"
  "result": "processed_output"
  "stats": "statistics"
 }
 </pre>
 
-The <code>processed_output</code> is the output of MasKIT in the requested output format
-<br/>and <code>statistics</code> is an HTML overview with (so far only) the MasKIT version, the size of the text and the processing time.
+The <code>overview_message</code> is a short comprehensible message of what has been called;
+<br/>the <code>processed_output</code> is the output of MasKIT in the requested output format;
+<br/>and <code>statistics</code> is an HTML overview giving the MasKIT version, the size of the text and the processing time.
 
 
 <h3>Method <a id='info'>info</a></h3>
@@ -108,6 +110,6 @@ The described API can be comfortably used by <code>curl</code>. Several examples
 <pre style="white-space: pre-wrap" class="prettyprint lang-sh">curl --data-urlencode 'input=txt' --data-urlencode 'output=html' --data-urlencode 'text@input_file.txt' http://quest.ms.mff.cuni.cz/maskit/api/process</pre>
 
 <h3>Converting JSON Result to Plain Text</h3>
-<pre style="white-space: pre-wrap" class="prettyprint lang-sh">curl --data 'input=txt&amp;output=txt&amp;text=Paní Marie Nováková z Myslíkovy ulice č. 25 dostala dopis od firmy Škoda.' http://quest.ms.mff.cuni.cz/maskit/api/process | PYTHONIOENCODING=utf-8 python -c "import sys,json; sys.stdout.write(json.load(sys.stdin)['result'])"</pre>
+<pre style="white-space: pre-wrap" class="prettyprint lang-sh">curl --data 'input=txt&amp;output=txt&amp;text=Paní Marie Nováková z Myslíkovy ulice č. 25 dostala dopis od firmy Škoda.' http://quest.ms.mff.cuni.cz/maskit/api/process | PYTHONIOENCODING=utf-8 python3 -c "import sys,json; sys.stdout.write(json.load(sys.stdin)['result'])"</pre>
 
 <?php require('footer.php') ?>
