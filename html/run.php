@@ -1,7 +1,5 @@
 <?php $main_page=basename(__FILE__); require('header.php') ?>
 
-<?php require('about.html') ?>
-
 <script type="text/javascript"><!--
   var input_file_content = null;
   var output_file_content = null;
@@ -91,17 +89,17 @@
         form_data.append(key, options[key]);
     }
 
-    var version = 'unknown (<font color="red">the MasKIT server seems to be off-line!</font>)';
-    var features = 'unknown';
+    var version = '<?php echo $lang[$currentLang]['run_server_info_version_unknown']; ?> (<font color="red"><?php echo $lang[$currentLang]['run_server_info_status_error']; ?>!</font>)';
+    var features = '<?php echo $lang[$currentLang]['run_server_info_features_unknown']; ?>';
     //console.log("Calling api/info");
-    jQuery.ajax('//quest.ms.mff.cuni.cz/maskit/api/info',
+    jQuery.ajax('//quest.ms.mff.cuni.cz/ponk/api/info',
            {data: form_data ? form_data : options, processData: form_data ? false : true,
             contentType: form_data ? false : 'application/x-www-form-urlencoded; charset=UTF-8',
             dataType: "json", type: "POST", success: function(json) {
       try {
         if ("version" in json) {
 		version = json.version;
-		version += ', <span style="font-style: normal">status:</span> <font color="green">online</font>';
+		version += ', <span style="font-style: normal"><?php echo $lang[$currentLang]['run_server_info_status']; ?>:</span> <font color="green">online</font>';
 		//console.log("json.version: ", version);
         }
         if ("features" in json) {
@@ -112,12 +110,16 @@
         // no need to do anything
       }
     }, error: function(jqXHR, textStatus) {
-      console.log("An error occurred" + ("responseText" in jqXHR ? ": " + jqXHR.responseText : "!"));
+      console.log("An error occurred " + ("responseText" in jqXHR ? ": " + jqXHR.responseText : "!"));
     }, complete: function() {
       //console.log("Complete.");
-      var info = "<h4>MasKIT server info</h4>\n<ul><li>version: <i>" + version + "</i>\n<li>supported features: <i>" + features + "</i>\n</ul>\n";
+      var info = "<h4><?php echo $lang[$currentLang]['run_server_info_label']; ?></h4>\n<ul><li><?php echo $lang[$currentLang]['run_server_info_version']; ?>: <i>" + version + "</i>\n<li><?php echo $lang[$currentLang]['run_server_info_features']; ?>: <i>" + features + "</i>\n</ul>\n";
       jQuery('#server_info').html(info).show();
       //console.log("Info: ", info);
+      var short_info = "&nbsp; <?php echo $lang[$currentLang]['run_server_info_version']; ?>: <i>" + version + "</i>";
+      jQuery('#server_short_info').html(short_info).show();
+      //console.log("Info: ", info);
+      
     }});
   }
   
@@ -257,51 +259,94 @@
 
 --></script>
 
-<div class="panel panel-info">
-  <div class="panel-heading">Service</div>
-  <div class="panel-body">
+<div class="panel panel-default">
+  <div class="panel-heading" role="tab" id="aboutHeading">
+    <div class="collapsed" role="button" data-toggle="collapse" href="#aboutContent" aria-expanded="false" aria-controls="aboutContent">
+      <span class="glyphicon glyphicon-triangle-bottom" aria-hidden="true"></span> <?php echo $lang[$currentLang]['run_about_line']; ?>
+    </div>
+  </div>
+  <div id="aboutContent" class="panel-collapse collapse" role="tabpanel" aria-labelledby="aboutHeading">
+
+          <?php
+            if ($currentLang == 'cs') {
+          ?>
+    <div style="margin: 5px"><?php require('about_cs.html') ?></div>
+          <?php
+            } else {
+          ?>
+    <div style="margin: 5px"><?php require('about_en.html') ?></div>
+          <?php
+            }
+          ?>
+
+  </div>
+</div>
+
+  <div class="panel panel-default">
+    <div class="panel-heading" role="tab" id="serverInfoHeading">
+      <div class="collapsed" role="button" data-toggle="collapse" href="#serverInfoContent" aria-expanded="false" aria-controls="serverInfoContent">
+        <span class="glyphicon glyphicon-triangle-bottom" aria-hidden="true"></span> <?php echo $lang[$currentLang]['run_server_info_label']; ?>: <span id="server_short_info" style="display: none"></span>
+      </div>
+    </div>
+    <div id="serverInfoContent" class="panel-collapse collapse" role="tabpanel" aria-labelledby="serverInfoHeading">
+
+      <div style="margin: 5px">
 
     <div id="server_info" style="display: none"></div>
   
-    <?php require('licence.html') ?>
-    
-    <p>Please note that due to time limitations on our proxy server, the maximum length for input text is approximately 5 thousand words.</p>
+          <?php
+            if ($currentLang == 'cs') {
+          ?>
+    <div><?php require('licence_cs.html') ?></div>
+          <?php
+            } else {
+          ?>
+    <div><?php require('licence_en.html') ?></div>
+          <?php
+            }
+          ?>
 
-    <div id="error" class="alert alert-danger" style="display: none"></div>
+        <p><?php echo $lang[$currentLang]['run_server_info_word_limit']; ?></p>
+     <div id="error" class="alert alert-danger" style="display: none"></div>
+     </div>
+  </div>
+
+  <!-- ================= OPTIONS ================ -->
 
     <div class="form-horizontal">
-      <div class="form-group row">
-        <label class="col-sm-2 control-label">Input:</label>
+      <div class="form-group row" style="margin-top: 10px; margin-bottom: 0px">
+        <label class="col-sm-2 control-label"><?php echo $lang[$currentLang]['run_options_input_label']; ?>:</label>
         <div class="col-sm-10">
-          <label title="Tokenize input using a tokenizer" class="radio-inline" id="option_input_plaintext"><input name="option_input" type="radio" value="txt" checked/>Plain text</label>
-          <label title="Tokenize a pre-segmented input using a tokenizer" class="radio-inline" id="option_input_presegmented"><input name="option_input" type="radio" value="presegmented"/>Pre-segmented (<a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_input" target="_blank">sentence per line</a>)</label>
+          <label title="<?php echo $lang[$currentLang]['run_options_input_plain_popup']; ?>" class="radio-inline" id="option_input_plaintext"><input name="option_input" type="radio" value="txt" checked/><?php echo $lang[$currentLang]['run_options_input_plain']; ?></label>
+          <label title="<?php echo $lang[$currentLang]['run_options_input_presegmented_popup']; ?>" class="radio-inline" id="option_input_presegmented"><input name="option_input" type="radio" value="presegmented"/><?php echo $lang[$currentLang]['run_options_input_presegmented']; ?> (<a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_input" target="_blank"><?php echo $lang[$currentLang]['run_options_input_presegmented_note']; ?></a>)</label>
         </div>
       </div>
-      <div class="form-group row">
-        <label class="col-sm-2 control-label">Output:</label>
+      <div class="form-group row" style="margin-top: 0px; margin-bottom: 0px">
+        <label class="col-sm-2 control-label"><?php echo $lang[$currentLang]['run_options_output_label']; ?>:</label>
 	<div class="col-sm-10">
-          <label title="TXT with original texts marked with special characters" class="radio-inline">
-            <input name="option_output" type="radio" value="txt" id="option_output_txt" onchange="handleOutputFormatChange();"/>TXT
-            (<a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank">marked with special characters</a>)
+          <label title="<?php echo $lang[$currentLang]['run_options_output_txt_popup']; ?>" class="radio-inline">
+            <input name="option_output" type="radio" value="txt" id="option_output_txt" onchange="handleOutputFormatChange();"/><?php echo $lang[$currentLang]['run_options_output_txt']; ?>
+            (<a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank"><?php echo $lang[$currentLang]['run_options_output_txt_note']; ?></a>)
           </label>
-          <label title="HTML with colour-marked replacements and original texts" class="radio-inline">
-            <input name="option_output" type="radio" value="html" id="option_output_html" checked onchange="handleOutputFormatChange();"/>HTML
-            (<a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank">colour-marked</a>)
+          <label title="<?php echo $lang[$currentLang]['run_options_output_html_popup']; ?>" class="radio-inline">
+            <input name="option_output" type="radio" value="html" id="option_output_html" checked onchange="handleOutputFormatChange();"/><?php echo $lang[$currentLang]['run_options_output_html']; ?> (<a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank"><?php echo $lang[$currentLang]['run_options_output_html_note']; ?></a>)
           </label>
         </div>
       </div>
-      <div class="form-group row">
-        <label class="col-sm-2 control-label">Options:</label>
+      <div class="form-group row" style="margin-top: 0px">
+        <label class="col-sm-2 control-label"><?php echo $lang[$currentLang]['run_options_options_label']; ?>:</label>
         <div class="col-sm-10">
-          <label title="Randomize the order of replacements" class="checkbox-inline" id="option_randomize_label"><input id="option_randomize" name="option_randomize" type="checkbox" checked onchange="handleRandomizeChanged();"/>Randomize replacements</label>
-          <label title="Use classes as replacements instead of fake names" class="checkbox-inline" id="option_classes_label"><input id="option_classes" name="option_classes" type="checkbox" onchange="handleClassesChanged();"/>Use classes as replacements</label>
+          <label title="<?php echo $lang[$currentLang]['run_options_options_randomize_popup']; ?>" class="checkbox-inline" id="option_randomize_label"><input id="option_randomize" name="option_randomize" type="checkbox" checked onchange="handleRandomizeChanged();"/><?php echo $lang[$currentLang]['run_options_options_randomize']; ?></label>
+          <label title="<?php echo $lang[$currentLang]['run_options_options_classes_popup']; ?>" class="checkbox-inline" id="option_classes_label"><input id="option_classes" name="option_classes" type="checkbox" onchange="handleClassesChanged();"/><?php echo $lang[$currentLang]['run_options_options_classes']; ?></label>
         </div>
       </div>
     </div>
 
+    <!-- ================= INPUT FIELDS ================ -->
+
     <ul class="nav nav-tabs nav-justified nav-tabs-green">
-     <li class="active" style="position:relative"><a href="#input_text" data-toggle="tab"><span class="fa fa-font"></span> Input Text</a>
-          <button type="button" class="btn btn-primary btn-xs" style="position:absolute; top: 11px; right: 10px; padding: 0 2em" onclick="var t=document.getElementById('input'); t.value=''; t.focus();">Delete input text</button>
+     <li class="active" style="position:relative"><a href="#input_text" data-toggle="tab"><span class="fa fa-font"></span> <?php echo $lang[$currentLang]['run_input_text']; ?></a>
+          <button type="button" class="btn btn-primary btn-xs" style="position:absolute; top: 11px; right: 10px; padding: 0 2em" onclick="var t=document.getElementById('input'); t.value=''; t.focus();"><?php echo $lang[$currentLang]['run_input_text_button_delete']; ?></button>
      </li>
     </ul>
 
@@ -312,27 +357,29 @@
      </div>
     </div>
 
-    <button id="submit" class="btn btn-primary form-control" type="submit" style="margin-top: 15px; margin-bottom: 15px" onclick="doSubmit()"><span class="fa fa-arrow-down"></span> Process Input <span class="fa fa-arrow-down"></span></button>
+    <button id="submit" class="btn btn-primary form-control" type="submit" style="margin-top: 15px; margin-bottom: 15px" onclick="doSubmit()"><span class="fa fa-arrow-down"></span> <?php echo $lang[$currentLang]['run_process_input']; ?> <span class="fa fa-arrow-down"></span></button>
+
+    <!-- ================= OUTPUT FIELDS ================ -->
 
     <ul class="nav nav-tabs nav-justified nav-tabs-green">
      <li class="active" style="position:relative">
-	  <a href="#output_formatted" data-toggle="tab"><span class="fa fa-font"></span> Output</a>
+	  <a href="#output_formatted" data-toggle="tab"><span class="fa fa-font"></span> <?php echo $lang[$currentLang]['run_output_text']; ?></a>
           <div style="position:absolute; top: 6px; left: 10px; padding: 0 0em; border: none;">
             <div style="display: flex; flex-direction: row;">
               <div style="display: flex; flex-direction: column; align-items: center; margin-right: 8px;">
-                <input type="checkbox" checked id="origsCheckbox" onchange="displayFormattedOutput();">
-                <span style="font-size: 60%; font-weight: normal; margin-top: 2px;">origs</span>
+                <input title="<?php echo $lang[$currentLang]['run_output_text_check_origs_popup']; ?>" type="checkbox" checked id="origsCheckbox" onchange="displayFormattedOutput();">
+                <span style="font-size: 60%; font-weight: normal; margin-top: 2px;"><?php echo $lang[$currentLang]['run_output_text_check_origs']; ?></span>
               </div>
               <div style="display: flex; flex-direction: column; align-items: center;">
-                <input type="checkbox" checked id="highlightingCheckbox" onchange="displayFormattedOutput();">
-                <span style="font-size: 60%; font-weight: normal; margin-top: 2px;">colours</span>
+                <input title="<?php echo $lang[$currentLang]['run_output_text_check_colours_popup']; ?>" type="checkbox" checked id="highlightingCheckbox" onchange="displayFormattedOutput();">
+                <span style="font-size: 60%; font-weight: normal; margin-top: 2px;"><?php echo $lang[$currentLang]['run_output_text_check_colours']; ?></span>
               </div>
             </div>
           </div>
-          <button type="button" class="btn btn-primary btn-xs" style="position:absolute; top: 11px; right: 10px; padding: 0 2em" onclick="saveOutput();"><span class="fa fa-download"></span> Save</button>
+          <button type="button" class="btn btn-primary btn-xs" style="position:absolute; top: 11px; right: 10px; padding: 0 2em" onclick="saveOutput();"><span class="fa fa-download"></span> <?php echo $lang[$currentLang]['run_output_text_button_save']; ?></button>
      </li>
-     <li style="position:relative"><a href="#output_stats" data-toggle="tab"><span class="fa fa-table"></span> Statistics</a>
-          <button type="button" class="btn btn-primary btn-xs" style="position:absolute; top: 11px; right: 10px; padding: 0 2em" onclick="saveStats();"><span class="fa fa-download"></span> Save</button>
+     <li style="position:relative"><a href="#output_stats" data-toggle="tab"><span class="fa fa-table"></span> <?php echo $lang[$currentLang]['run_output_statistics']; ?></a>
+          <button type="button" class="btn btn-primary btn-xs" style="position:absolute; top: 11px; right: 10px; padding: 0 2em" onclick="saveStats();"><span class="fa fa-download"></span> <?php echo $lang[$currentLang]['run_output_statistics_button_save']; ?></button>
      </li>
     </ul>
 
@@ -343,21 +390,22 @@
      </div>
     </div>
 
-    <h3 id="acknowledgements_title" style="margin-top: 30px">Acknowledgements</h3>
-    <p id="acknowledgements_text">The development of MasKIT was financed by the TAČR SIGMA project TQ01000526: PONK - Asistent přístupné úřední komunikace.</p>
-    <p>MasKIT uses external services for its work:
-    <ul>
-      <li>
-        UDPipe (<a href="https://lindat.mff.cuni.cz/services/udpipe/" target="_blank">https://lindat.mff.cuni.cz/services/udpipe/</a>)
-      </li>
-      <li>
-        NameTag (<a href="http://lindat.mff.cuni.cz/services/nametag/" target="_blank">http://lindat.mff.cuni.cz/services/nametag/</a>)
-      </li>
-    </ul>
-    <p> 
-      This work has been using language resources developed, stored or distributed by the LINDAT/CLARIAH-CZ project of the Ministry of Education of the Czech Republic (project <i>LM2023062</i>).
-    </p>
-  </div>
+    <div style="margin: 5px">
+
+          <?php
+            if ($currentLang == 'cs') {
+          ?>
+    <div><?php include('acknowledgements_cs.html') ?></div>
+          <?php
+            } else {
+          ?>
+    <div><?php include('acknowledgements_en.html') ?></div>
+          <?php
+            }
+          ?>
+
+
+    </div>
 </div>
 
 <?php require('footer.php') ?>

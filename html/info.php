@@ -1,6 +1,16 @@
 <?php $main_page=basename(__FILE__); require('header.php') ?>
 
-<?php require('about.html') ?>
+<?php
+  if ($currentLang == 'cs') {
+?>
+    <div style="margin: 5px"><?php require('about_cs.html') ?></div>
+<?php
+  } else {
+?>
+    <div style="margin: 5px"><?php require('about_en.html') ?></div>
+<?php
+  }
+?>
 
 <div class="panel panel-info">
   <div class="panel-heading">Basic info</div>

@@ -1,3 +1,34 @@
+
+<?php
+// Spuštění session pro uchovávání jazyka mezi požadavky
+session_start();
+
+// Změna jazyka přes GET parametr
+if (isset($_GET['lang']) && $_GET['lang'] !== $_SESSION['lang']) {
+    $_SESSION['lang'] = $_GET['lang'];
+    
+    // Získání aktuální URL bez lang parametru
+    $baseUrl = '/maskit';
+    $currentUrlWithoutLang = preg_replace('/(\?|&)lang=[^&]*/', '', $_SERVER['REQUEST_URI']);
+    
+    // Přesměrování na URL bez lang parametru
+    header("Location: " . $baseUrl . $currentUrlWithoutLang);
+    exit();
+}
+
+// Nastavení defaultního jazyka, pokud není nastavený
+if (!isset($_SESSION['lang'])) {
+    $_SESSION['lang'] = 'cs'; // Defaultní jazyk je český
+}
+
+// Načtení jazykového souboru
+require 'lang.php';
+
+// Uložení aktuálního jazyka do proměnné pro snadnější použití
+$currentLang = $_SESSION['lang'];
+?>
+
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -30,8 +61,22 @@
       <h1 class="text-center">MasKIT</h1>
 
       <!-- menu -->
-      <ul class="nav nav-tabs text-center" style="margin-bottom: 10px">
-        <li <?php if ($main_page == 'info.php') echo ' class="active"'?>><a href="info.php"><span class="fa fa-info-circle"></span> About</a></li>
-        <li <?php if ($main_page == 'run.php') echo ' class="active"'?>><a href="run.php"><span class="fa fa-cogs"></span> Run</a></li>
-        <li <?php if ($main_page == 'api-reference.php') echo ' class="active"'?>><a href="api-reference.php"><span class="fa fa-list"></span> REST API Documentation</a></li>
-      </ul>
+      <div class="menu-container" style="position: relative;"> <!-- kontejner pro umístění vlaječek vpravo -->
+        <ul class="nav nav-tabs text-center" style="margin-bottom: 10px">
+          <li <?php if ($main_page == 'info.php') echo ' class="active"'?>><a href="info.php"><span class="fa fa-info-circle"></span> <?php echo $lang[$currentLang]['menu_about']; ?></a></li>
+          <li <?php if ($main_page == 'run.php') echo ' class="active"'?>><a href="run.php"><span class="fa fa-cogs"></span> <?php echo $lang[$currentLang]['menu_run']; ?></a></li>
+          <li <?php if ($main_page == 'api-reference.php') echo ' class="active"'?>><a href="api-reference.php"><span class="fa fa-list"></span> <?php echo $lang[$currentLang]['menu_api']; ?></a></li>
+          <!-- Přidání vlaječek pro změnu jazyka -->
+          <?php
+            if ($currentLang == 'cs') {
+          ?>
+              <li style="right: 10px; position: absolute; margin-left: 10px;"><a href="?lang=en"><img src="img/flag_en.png" alt="English" style="height: 18px;"></a></li>
+          <?php
+            } else { 
+          ?>
+              <li style="right: 10px; position: absolute; margin-left: 10px;"><a href="?lang=cs"><img src="img/flag_cs.png" alt="čeština" style="height: 18px;"></a></li>
+          <?php
+            }
+          ?>
+        </ul>
+      </div>

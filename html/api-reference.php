@@ -13,7 +13,20 @@
 <p>MasKIT REST API web service is available on
 <code>http(s)://quest.ms.mff.cuni.cz/maskit/api/</code>.</p>
 
-<?php require('licence.html') ?>
+
+          <?php
+            if ($currentLang == 'cs') {
+          ?>
+    <div><?php require('licence_cs.html') ?></div>
+          <?php
+            } else {
+          ?>
+    <div><?php require('licence_en.html') ?></div>
+          <?php
+            }
+          ?>
+
+
 
 <h2 id="api_reference">API Reference</h2>
 
