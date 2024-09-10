@@ -65,13 +65,13 @@
 	  }
 
       } catch(e) {
-        jQuery('#submit').html('<span class="fa fa-arrow-down"></span> Process Input <span class="fa fa-arrow-down"></span>');
+        jQuery('#submit').html('<span class="fa fa-arrow-down"></span> <?php echo $lang[$currentLang]['run_process_input']; ?> <span class="fa fa-arrow-down"></span>');
         jQuery('#submit').prop('disabled', false);
       }
     }, error: function(jqXHR, textStatus) {
       alert("An error occurred" + ("responseText" in jqXHR ? ": " + jqXHR.responseText : "!"));
     }, complete: function() {
-      jQuery('#submit').html('<span class="fa fa-arrow-down"></span> Process Input <span class="fa fa-arrow-down"></span>');
+      jQuery('#submit').html('<span class="fa fa-arrow-down"></span> <?php echo $lang[$currentLang]['run_process_input']; ?> <span class="fa fa-arrow-down"></span>');
       jQuery('#submit').prop('disabled', false);
     }});
   }
