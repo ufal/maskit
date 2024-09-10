@@ -92,7 +92,7 @@
     var version = '<?php echo $lang[$currentLang]['run_server_info_version_unknown']; ?> (<font color="red"><?php echo $lang[$currentLang]['run_server_info_status_error']; ?>!</font>)';
     var features = '<?php echo $lang[$currentLang]['run_server_info_features_unknown']; ?>';
     //console.log("Calling api/info");
-    jQuery.ajax('//quest.ms.mff.cuni.cz/ponk/api/info',
+    jQuery.ajax('//quest.ms.mff.cuni.cz/maskit/api/info',
            {data: form_data ? form_data : options, processData: form_data ? false : true,
             contentType: form_data ? false : 'application/x-www-form-urlencoded; charset=UTF-8',
             dataType: "json", type: "POST", success: function(json) {
