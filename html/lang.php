@@ -109,7 +109,7 @@ $lang = array(
 	'info_basic_OS' => 'OS',
 	'info_basic_licence' => 'Licence',
 	'info_basic_contact' => 'Contact',
-	'api_service_url' => 'PONK REST API web service is available on'
+	'api_service_url' => 'MasKIT REST API web service is available on'
     )
 );
 ?>
