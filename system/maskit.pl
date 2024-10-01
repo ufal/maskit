@@ -24,7 +24,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.64 20240820'; # version of the program
+my $VER = '0.65 20241001'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -89,17 +89,13 @@ my %logging_level_label = (0 => 'full', 1 => 'limited', 2 => 'anonymous');
 my $udpipe_service_url = 'http://lindat.mff.cuni.cz/services/udpipe/api';
 my $nametag_service_url = 'http://lindat.mff.cuni.cz/services/nametag/api';
 
-=item testing the hostname no longer needed, anonymous logging level is default
-
 my $hostname = hostname;
 if ($hostname eq 'maskit') { # if running at this server, use versions of udpipe and nametag that do not log texts
   $udpipe_service_url = 'http://udpipe:11001';
   $nametag_service_url = 'http://udpipe:11002';
-  $VER .= ' (no text logging)';
-  $logging_level = 2; # anonymous
+  # $VER .= ' (no text logging)'; # anonymous logging level is default
+  # $logging_level = 2; # anonymous logging level is default
 }
-
-=cut
 
 #############################
 # Colours for html
