@@ -93,8 +93,8 @@ my $hostname = hostname;
 if ($hostname eq 'maskit') { # if running at this server, use versions of udpipe and nametag that do not log texts
   $udpipe_service_url = 'http://udpipe:11001';
   $nametag_service_url = 'http://udpipe:11002';
-  # $VER .= ' (no text logging)'; # anonymous logging level is default
-  # $logging_level = 2; # anonymous logging level is default
+  $VER .= ' (no text logging)';
+  $logging_level = 2; # anonymous logging level is default but just to be sure...
 }
 
 #############################
