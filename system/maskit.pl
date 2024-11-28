@@ -24,7 +24,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.65 20241001'; # version of the program
+my $VER = '0.66 20241128'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -3041,6 +3041,9 @@ END_OUTPUT_HEAD
     # SENTENCE HEADER (conllu)
     if ($format eq 'conllu') {
       $output .= attr($root, 'other_comment') // '';
+      if ($first_par and $first_sent) { # add info about MasKIT
+        $output .= "# maskit_version = $VER\n";
+      }
       my $newdoc = attr($root, 'newdoc') // '';
       $output .= "$newdoc\n" if $newdoc;
       my $newpar = attr($root, 'newpar') // '';
@@ -3078,7 +3081,12 @@ END_OUTPUT_HEAD
 
     foreach my $node (@nodes) {
 
-      next if attr($node, 'hidden'); # do not output hidden nodes (originally parts of multiword expressions such as multiword street names)
+      my $hidden = attr($node, 'hidden');
+      if ($hidden) {
+        if ($format ne 'conllu') { # do not output hidden nodes unless in conllu format (originally parts of multiword expressions such as multiword street names)
+          next;
+        }
+      }
       
       # COLLECT INFO ABOUT THE TOKEN
       my $replacement = attr($node, 'replacement');
@@ -3231,6 +3239,7 @@ END_OUTPUT_HEAD
       }
       elsif ($format eq 'conllu') {
         my $ord = attr($node, 'ord') // '_';
+        $form = attr($node, 'form') // '_';
         my $lemma = attr($node, 'lemma') // '_';
         my $deprel = attr($node, 'deprel') // '_';
         my $upostag = attr($node, 'upostag') // '_';
@@ -3238,7 +3247,22 @@ END_OUTPUT_HEAD
         my $feats = attr($node, 'feats') // '_';
         my $deps = attr($node, 'deps') // '_';
         my $misc = attr($node, 'misc') // '_';
-
+        if ($replacement or $hidden) { # a replacement or hiding took place here
+          if ($misc eq '_') {
+            $misc = '';
+          }
+          else {
+            $misc .= '|MK=';
+          }
+          if ($replacement) {
+            $replacement =~ s/^M-//; # get rid of M- prefix
+            $misc .= "r:$replacement";
+          }
+          if ($hidden) {
+            $misc .= ';' if ($replacement); # should not happen!
+            $misc .= "h";
+          }
+        }
         my $head = attr($node, 'head') // '_';
         
         my $multiword = attr($node, 'multiword') // '';
@@ -3255,6 +3279,8 @@ END_OUTPUT_HEAD
     if ($format eq 'conllu') {
       $output .= "\n"; # an empty line ends a sentence in the conllu format    
     }
+    
+    $first_sent = 0;
     
   }
   
