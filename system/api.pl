@@ -74,8 +74,8 @@ any '/api/process' => sub {
     my $method = $c->req->method;
     
     my $text = $c->param('text'); # input text
-    my $input_format = $c->param('input'); # input format
-    my $output_format = $c->param('output'); # output format
+    my $input_format = $c->param('input') // ''; # input format
+    my $output_format = $c->param('output') // ''; # output format
     my $randomize = defined $c->param('randomize') ? 1 : 0; # randomization
     my $classes = defined $c->param('classes') ? 1 : 0; # classes as replacements
 
