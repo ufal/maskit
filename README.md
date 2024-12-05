@@ -22,5 +22,5 @@ See [the documentation](https://ufal.mff.cuni.cz/maskit/users-manual).
 
 MasKIT uses external services for its work:
 
-- [UDPipe](https://lindat.mff.cuni.cz/services/udpipe/)
-- [NameTag](https://lindat.mff.cuni.cz/services/nametag/)
+- [UDPipe](https://github.com/ufal/udpipe/)
+- [NameTag](https://github.com/ufal/nametag/)
