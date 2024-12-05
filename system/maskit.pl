@@ -24,7 +24,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.66 20241128'; # version of the program
+my $VER = '0.67 20241205'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -36,7 +36,7 @@ my @features = ('first names (not judges)',
                 'town/town part names (incl. multiword; not places of court)',
                 'ZIP codes',
                 'company names (incl. multiword)',
-                #'government/political agencies (incl. multiword)',
+                'government/political agencies (incl. multiword)',
                 'cult./educ./scient. institutions (incl. multiword)',
                 'commercial register number (IČO)',
                 'tax register number (DIČ)',
@@ -57,7 +57,7 @@ my %supported_NameTag_classes = ('pf' => 1, # first names
                                  'gq' => 1, # urban parts
                                  'az' => 1, # zip codes
                                  'if' => 1, # companies, concerns...
-                                 #'io' => 1, # government/political inst.
+                                 'io' => 1, # government/political inst.
                                  'ic' => 1 # cult./educ./scient. inst.
                                 );
 
@@ -152,6 +152,8 @@ my $store_format;
 my $store_statistics;
 my $log_states;
 my $logging_level_override;
+my $url_udpipe;
+my $url_nametag;
 my $version;
 my $info;
 my $help;
@@ -172,6 +174,8 @@ GetOptions(
     'ss|store-statistics'    => \$store_statistics, # should statistics be logged as an HTML file?
     'ls|log-states=s'        => \$log_states, # log intermediate states in CoNLL-U format for debugging; possible values (separated by a comma): UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), FN (after fixing NameTag errors), UN (after unification of single-word NEs) 
     'll|logging-level=s'     => \$logging_level_override, # override the default (anonymous) logging level (0=full, 1=limited, 2=anonymous)
+    'uu|url-udpipe=s'        => \$url_udpipe, # set a custom UDPipe URL
+    'un|url-nametag=s'       => \$url_nametag, # set a custom NameTag URL
     'v|version'              => \$version, # print the version of the program and exit
     'n|info'                 => \$info, # print the info (program version and supported features) as JSON and exit
     'h|help'                 => \$help, # print a short help and exit
@@ -222,6 +226,8 @@ options:  -i|--input-file [input text file name]
                            UD (after UDPipe), NT (after NameTag), PA (after parsing to Tree::Simple), FN (after fixing NameTag errors),
                            UN (after unification of single-word NEs) 
          -ll|--logging-level (override the default (anonymous) logging level (0=full, 1=limited, 2=anonymous))
+         -uu|--url-udpipe [URL: set a custom UDPipe URL]
+         -un|--url-nametag [URL: set a custom NameTag URL]
           -v|--version (prints the version of the program and ends)
           -n|--info (prints the program version and supported features as JSON and ends)
           -h|--help (prints a short help and ends)
@@ -345,7 +351,15 @@ if (defined($logging_level_override)) {
   mylog(2, " - logging level override: $logging_level_override - $logging_level_label{$logging_level_override}\n");
 }
 
+if (defined($url_udpipe)) {
+  mylog(2, " - UDPipe URL: $url_udpipe\n");
+  $udpipe_service_url = $url_udpipe;
+}
 
+if (defined($url_nametag)) {
+  mylog(2, " - NameTag URL: $url_nametag\n");
+  $nametag_service_url = $url_nametag;
+}
 
 mylog(0, "\n");
 
@@ -1101,16 +1115,16 @@ sub get_NameTag_marks {
     $parent_lemma = attr($parent, 'lemma') // '';
   }
 
-=item
+  #=item
 
-  # not needed, as 'io' are not anonymized in general
+  # # not needed, as 'io' are not anonymized in general
 
   # do not anonymize 'soud' in spite of being 'io'; the same goes for its 'io' dependants ('okresní' soud)
   if ($marks =~ /\bio\b/ and is_part_of_lemma_and_class($node, 'soud', 'io')) { # if the node is 'io' and (either is 'soud' or depends (via 'io' nodes) on 'soud') 
     $marks = remove_from_marks_string($marks, 'io');
   }
 
-=cut
+  #=cut
 
   # do not anonymize names of judges, despite being 'pf'/'ps'
   if ($marks =~ /\b(pf|ps)\b/ and is_child_of_lemma_regexp_and_class_regexp($node, '^(soudce|soudkyně|samosoudce|samosoudkyně)$', '')) { # no condition on NameTag class for the parent
