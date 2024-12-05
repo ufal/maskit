@@ -25,7 +25,7 @@
   </tr>
   <tr>
       <th><?php echo $lang[$currentLang]['info_basic_repository']; ?></th>
-      <td><a href="https://svn.ms.mff.cuni.cz/svn/ponk/projects/maskit/system/" target="_blank">https://svn.ms.mff.cuni.cz/svn/ponk/projects/maskit/system/</a> (maskit/maskit)</td>
+      <td><a href="https://github.com/ufal/maskit" target="_blank">https://github.com/ufal/maskit</a></td>
   </tr>
   <tr>
       <th><?php echo $lang[$currentLang]['info_basic_development_status']; ?></th>
