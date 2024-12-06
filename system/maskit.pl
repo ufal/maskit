@@ -24,7 +24,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.67 20241205'; # version of the program
+my $VER = '0.68 20241206'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -158,7 +158,7 @@ my $version;
 my $info;
 my $help;
 
-# getting the arguements
+# getting the arguments
 GetOptions(
     'i|input-file=s'         => \$input_file, # the name of the input file
     'si|stdin'               => \$stdin, # should the input be read from STDIN?

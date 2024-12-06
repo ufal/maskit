@@ -25,6 +25,7 @@
 use strict;
 use warnings;
 use Mojolicious::Lite;
+use Getopt::Long; # reading arguments
 use IPC::Run qw(run);
 use JSON;
 use Encode;
@@ -38,6 +39,17 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $script_path = $0;  # Získá název spuštěného skriptu s cestou
 my $script_dir = dirname($script_path);  # Získá pouze adresář ze získané cesty
+
+# variables for arguments
+my $url_udpipe;
+my $url_nametag;
+
+# getting the arguments
+GetOptions(
+    'uu|url-udpipe=s'        => \$url_udpipe, # set a custom UDPipe URL
+    'un|url-nametag=s'       => \$url_nametag, # set a custom NameTag URL
+);
+
 
 # Endpoint pro info
 any '/api/info' => sub {
@@ -92,6 +104,12 @@ any '/api/process' => sub {
     }
     if ($classes) {
         push(@cmd, '--classes');
+    }
+    if ($url_udpipe) {
+        push(@cmd, ('--url-udpipe', $url_udpipe));
+    }
+    if ($url_nametag) {
+        push(@cmd, ('--url-nametag', $url_nametag));
     }
     my $stdin_data = $text;
     my $result_json;

@@ -1,24 +1,18 @@
 morbo api.pl
 
+# to specify custom URLs for UDPipe and NameTag, run, e.g.:
+# morbo -- api.pl --url-udpipe https://lindat.mff.cuni.cz/services/udpipe/api --url-nametag https://lindat.mff.cuni.cz/services/nametag/api
+
 exit
+
 
 <<COMMENT
 
-Svoji službu REST API implementovanou v perlu pomocí knihovny Mojolicious::Lite spouštím na serveru pomocí příkazu morbo api.pl. Potřeboval bych, aby ta služba fungovala nezávisle na terminálu a pokud možno i po restartu počítače. Jak se toto řeší?
+REST API implementováno v Perlu pomocí knihovny Mojolicious::Lite, spouští se pomocí příkazu morbo api.pl.
 
+Aby REST API služba fungovala nezávisle na terminálu a i po restartu počítače: použití process manager a service pro správu běhu.
 
-Abyste zajistil, že vaše REST API služba implementovaná v Perl s knihovnou Mojolicious::Lite bude fungovat nezávisle na terminálu a i po restartu počítače, můžete využít několik přístupů. Jedním z možných řešení je použití procesního správce (process manager) a služby (service) pro správu běhu vaší aplikace.
-
-Zde je návod, jak postupovat:
-
-1. **Přesunout kód API do samostatného souboru:**
-   Nejprve přesuňte kód vašeho REST API implementovaného pomocí Mojolicious::Lite do samostatného souboru, například `api.pl`. Ujistěte se, že váš kód obsahuje všechny potřebné moduly a nastavení.
-
-2. **Instalovat službu pro správu procesů:**
-   Na systému, kde chcete spouštět svoji službu, by měl být k dispozici nějaký procesní správce. Pro unixové systémy je jednou z běžných možností [Systemd](https://www.freedesktop.org/wiki/Software/systemd/), který umožňuje definovat a spravovat systémové služby.
-
-3. **Vytvoření konfiguračního souboru pro službu:**
-   Vytvořte konfigurační soubor pro vaši službu. Pro Systemd může vypadat nějak takto (`/etc/systemd/system/my-api.service`):
+Konfigurační soubor pro Systemd: (`/etc/systemd/system/my-api.service`):
 
    ```
    [Unit]
@@ -34,10 +28,11 @@ Zde je návod, jak postupovat:
    WantedBy=multi-user.target
    ```
 
-   Upravte cestu k `api.pl`, pracovní adresář, uživatelské jméno a další parametry podle vašeho nastavení.
+   Nastavit cestu k `api.pl`, pracovní adresář, uživatelské jméno a další parametry podle potřeby.
 
-4. **Aktivace a spuštění služby:**
-   Po vytvoření konfigurace spusťte následující příkazy:
+Aktivace a spuštění služby:
+
+Po vytvoření konfigurace:
 
    ```
    sudo systemctl daemon-reload
@@ -45,10 +40,9 @@ Zde je návod, jak postupovat:
    sudo systemctl start my-api
    ```
 
-   Tímto se služba začne automaticky spouštět při startu systému a bude se také automaticky restartovat v případě selhání.
+Služba se začne automaticky spouštět při startu systému a bude se také automaticky restartovat v případě selhání.
 
-5. **Správa služby:**
-   Službu lze spravovat pomocí příkazů `systemctl`, např.:
+Správa služby:
 
    ```
    sudo systemctl status my-api
@@ -56,7 +50,7 @@ Zde je návod, jak postupovat:
    sudo systemctl restart my-api
    ```
 
-Tímto způsobem byste měl mít svoji REST API službu spuštěnou jako systémovou službu, která bude fungovat nezávisle na terminálu a bude se také automaticky restartovat po restartu počítače.
+REST API je takto spuštěna jako systémová služba, která bude fungovat nezávisle na terminálu a bude se také automaticky restartovat po restartu počítače.
 
 ===========
 Pozn.
@@ -70,6 +64,6 @@ Vstupní body služby REST API (např. info, process) je potřeba nastavit také
         ProxyPassReverse "/api/info" "http://localhost:3000/api/info"
 
 a pak provést
-  sudo service apache restart
+  sudo service apache2 restart
 
 COMMENT
