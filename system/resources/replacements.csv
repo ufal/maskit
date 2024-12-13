@@ -117,15 +117,15 @@ if	company	Case=Loc	UniServisu|UniTechně|UniLabu|BravoTechně|BravoServisu|Magn
 if	company	Case=Ins	UniServisem|UniTechnou|UniLabem|BravoTechnou|BravoServisem|MagniCentem|ProfiTechnou|ProfiLabem|ProfiServisem|VitaServisem|VitaTechnou
 
 # government/political inst.
-#io	agency	ClassName	M-AGENTURA
-#io	agency	Abbr=Yes	AABBR1|AABBR2|AABBR3|AABBR4
-#io	agency	Case=Nom	UniAgentura|ProfiAgentura|BravoAgentura|ParloAgentura
-#io	agency	Case=Gen	UniAgentury|ProfiAgentury|BravoAgentury|ParloAgentury
-#io	agency	Case=Dat	UniAgentuře|ProfiAgentuře|BravoAgentuře|ParloAgentuře
-#io	agency	Case=Acc	UniAgenturu|ProfiAgenturu|BravoAgenturu|ParloAgenturu
-#io	agency	Case=Voc	UniAgenturo|ProfiAgenturo|BravoAgenturo|ParloAgenturo
-#io	agency	Case=Loc	UniAgentuře|ProfiAgentuře|BravoAgentuře|ParloAgentuře
-#io	agency	Case=Ins	UniAgenturou|ProfiAgenturou|BravoAgenturou|ParloAgenturou
+io	agency	ClassName	M-AGENTURA
+io	agency	Abbr=Yes	AABBR1|AABBR2|AABBR3|AABBR4
+io	agency	Case=Nom	UniAgentura|ProfiAgentura|BravoAgentura|ParloAgentura
+io	agency	Case=Gen	UniAgentury|ProfiAgentury|BravoAgentury|ParloAgentury
+io	agency	Case=Dat	UniAgentuře|ProfiAgentuře|BravoAgentuře|ParloAgentuře
+io	agency	Case=Acc	UniAgenturu|ProfiAgenturu|BravoAgenturu|ParloAgenturu
+io	agency	Case=Voc	UniAgenturo|ProfiAgenturo|BravoAgenturo|ParloAgenturo
+io	agency	Case=Loc	UniAgentuře|ProfiAgentuře|BravoAgentuře|ParloAgentuře
+io	agency	Case=Ins	UniAgenturou|ProfiAgenturou|BravoAgenturou|ParloAgenturou
 
 # cult./educ./scient. inst.
 ic	institute	ClassName	M-INSTITUCE
