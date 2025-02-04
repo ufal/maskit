@@ -10,7 +10,7 @@ MasKIT REST API Web service is also available, with the API documentation at [ht
 
 ## License
 
-Copyright 2023-2024 by Institute of Formal and Applied Linguistics, Faculty of Mathematics and Physics, Charles University, Czech Republic. 
+Copyright 2023-2025 by Institute of Formal and Applied Linguistics, Faculty of Mathematics and Physics, Charles University, Czech Republic. 
 The software is available under the Creative Commons [CC BY-NC-SA](https://creativecommons.org/licenses/by-nc-sa/4.0/) licence.
 
 ## Requirements
