@@ -24,7 +24,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.69 20241213'; # version of the program
+my $VER = '0.70 20250204'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -486,128 +486,8 @@ if ($log_states and $log_states =~ /\bNT\b/) {
 # Let us parse the CONLL format into Tree::Simple tree structures (one tree per sentence)
 ###################################################################################
 
-my @lines = split("\n", $conll_data_ne);
+my @trees = parse_conllu($conll_data_ne); # array of trees in the document
 
-my @trees = (); # array of trees in the document
-
-my $root; # a single root
-
-my $min_start = 10000; # from indexes of the tokens, we will get indexes of the sentence
-my $max_end = 0;
-
-my $multiword = ''; # store a multiword line to keep with the following token
-
-# the following cycle for reading UD CONLL is modified from Jan Štěpánek's UD TrEd extension
-foreach my $line (@lines) {
-    chomp($line);
-    #mylog(0, "Line: $line\n");
-    if ($line =~ /^#/ && !$root) {
-        $root = Tree::Simple->new({}, Tree::Simple->ROOT);
-        #mylog(0, "Beginning of a new sentence!\n");
-    }
-
-    if ($line =~ /^#\s*newdoc/) { # newdoc
-        set_attr($root, 'newdoc', $line); # store the whole line incl. e.g. id = ...
-    } elsif ($line =~ /^#\s*newpar/) { # newpar
-        set_attr($root, 'newpar', $line); # store the whole line incl. e.g. id = ...
-    } elsif ($line =~ /^#\s*sent_id\s=\s*(\S+)/) {
-        my $sent_id = $1; # substr $sent_id, 0, 0, 'PML-' if $sent_id =~ /^(?:[0-9]|PML-)/;
-        set_attr($root, 'id', $sent_id);
-    } elsif ($line =~ /^#\s*text\s*=\s*(.*)/) {
-        set_attr($root, 'text', $1);
-        #mylog(0, "Reading sentence '$1'\n");
-    } elsif ($line =~ /^#/) { # other comment, store it as well (all other comments in one attribute other_comment with newlines included)
-        my $other_comment_so_far = attr($root, 'other_comment') // '';
-        set_attr($root, 'other_comment', $other_comment_so_far . $line . "\n");
-        
-    } elsif ($line =~ /^$/) { # empty line, i.e. end of a sentence
-        _create_structure($root);
-        set_attr($root, 'start', $min_start);
-        set_attr($root, 'end', $max_end);
-        $min_start = $min_start = 10000;
-        $max_end = 0;
-        push(@trees, $root);
-        #mylog(0, "End of sentence id='" . attr($root, 'id') . "'.\n\n");
-        $root = undef;
-
-    } else { # a token
-        my ($n, $form, $lemma, $upos, $xpos, $feats, $head, $deprel,
-            $deps, $misc) = split (/\t/, $line);
-        $_ eq '_' and undef $_
-            for $xpos, $feats, $deps, $misc;
-
-        # $misc = 'Treex::PML::Factory'->createList( [ split /\|/, ($misc // "") ]);
-        #if ($n =~ /-/) {
-        #    _create_multiword($n, $root, $misc, $form);
-        #    next
-        #}
-        if ($n =~ /-/) { # a multiword line, store it to keep with the next token
-          $multiword = $line;
-          next;
-        }
-        
-        #$feats = _create_feats($feats);
-        #$deps = [ map {
-        #    my ($parent, $func) = split /:/;
-        #    'Treex::PML::Factory'->createContainer($parent,
-        #                                            {func => $func});
-        #} split /\|/, ($deps // "") ];
-
-        my $node = Tree::Simple->new({});
-        set_attr($node, 'ord', $n);
-        set_attr($node, 'form', $form);
-        set_attr($node, 'lemma', $lemma);
-        set_attr($node, 'deprel', $deprel);
-        set_attr($node, 'upostag', $upos);
-        set_attr($node, 'xpostag', $xpos);
-        set_attr($node, 'feats', $feats);
-        set_attr($node, 'deps', $deps); # 'Treex::PML::Factory'->createList($deps),
-        set_attr($node, 'misc', $misc);
-        set_attr($node, 'head', $head);
-        
-        if ($multiword) { # the previous line was a multiword, store it at the current token
-          set_attr($node, 'multiword', $multiword);
-          $multiword = '';
-        }
-        
-        if ($misc and $misc =~ /TokenRange=(\d+):(\d+)\b/) {
-          my ($start, $end) = ($1, $2);
-          set_attr($node, 'start', $start);
-          set_attr($node, 'end', $end);
-          $min_start = $start if $start < $min_start;
-          $max_end = $end if $end > $max_end;          
-        }
-        
-        $root->addChild($node);
-        
-    }
-}
-# If there wasn't an empty line at the end of the file, we need to process the last tree here:
-if ($root) {
-    _create_structure($root);
-    set_attr($root, 'start', $min_start);
-    set_attr($root, 'end', $max_end);
-    push(@trees, $root);
-    #mylog(0, "End of sentence id='" . attr($root, 'id') . "'.\n\n");
-    $root = undef;
-    #warn "Emtpy line missing at the end of input\n";
-}
-# end of Jan Štěpánek's modified cycle for reading UD CONLL
-
-# Now let us add pointers to immediately left and right nodes in the sentence surface order
-
-foreach my $tree (@trees) {
-  my @ordered_nodes = sort {attr($a, 'ord') <=> attr($b, 'ord')} descendants($tree);
-  my $prev_node = undef;
-  foreach my $node (@ordered_nodes) {
-    set_attr($node, 'left', $prev_node);
-    if ($prev_node) {
-      set_attr($prev_node, 'right', $node);
-    }
-    $prev_node = $node;
-  }
-  set_attr($ordered_nodes[-1], 'right', undef);
-}
 
 # Export the parsed trees to a file (for debugging, not needed for further processing)
 if ($log_states and $log_states =~ /\bPA\b/) {
@@ -634,7 +514,7 @@ mylog(1, "====================================================================\n
 
 my $sentence_count = 0;
 
-foreach $root (@trees) {
+foreach my $root (@trees) {
 
   my $sentence_id = attr($root, 'id') // '';
   # mylog(0, "\n====================================================================\n");
@@ -700,7 +580,7 @@ mylog(1, "====================================================================\n
 mylog(1, "Going to collect marks for all recognized single-word named entities.\n");
 mylog(1, "====================================================================\n");
 
-foreach $root (@trees) {
+foreach my $root (@trees) {
   # mylog(0, "\n====================================================================\n");
   # mylog(0, "Sentence id=" . attr($root, 'id') . ": " . attr($root, 'text') . "\n");
   # print_children($root, "\t");
@@ -790,7 +670,7 @@ mylog(1, "====================================================================\n
 
 my $count = 0;
 
-foreach $root (@trees) {
+foreach my $root (@trees) {
   # mylog(0, "\n====================================================================\n");
   # mylog(0, "Sentence id=" . attr($root, 'id') . ": " . attr($root, 'text') . "\n");
   # print_children($root, "\t");
@@ -869,7 +749,7 @@ mylog(1, "MAIN LOOP - going to anonymize the sentences.\n");
 mylog(1, "====================================================================\n");
 mylog(1, "====================================================================\n");
 
-foreach $root (@trees) {
+foreach my $root (@trees) {
   mylog(0, "\n");
   mylog(0, "====================================================================\n");
   mylog(0, "Sentence id=" . attr($root, 'id') . ": " . attr($root, 'text') . "\n");
@@ -3413,7 +3293,7 @@ sub get_sentence {
   my $range = shift;
   if ($range =~ /^(\d+):(\d+)/) {
     my ($start, $end) = ($1, $2);
-    foreach $root (@trees) { # go through all sentences
+    foreach my $root (@trees) { # go through all sentences
       if (attr($root, 'start') <= $start and attr($root, 'end') >= $end) { # we found the tree
         return attr($root, 'text');
       }
@@ -3422,6 +3302,153 @@ sub get_sentence {
   else {
     return 'N/A';
   }
+}
+
+
+=item
+
+Parses the CONLL-U format into Tree::Simple tree structures (one tree per sentence)
+
+=cut
+
+sub parse_conllu {
+  my $conllu_string = shift;
+
+  my @lines = split("\n", $conllu_string);
+
+  my @trees = (); # array of trees in the document
+
+  my $root; # a single root
+
+  my $min_start = 10000; # from indexes of the tokens, we will get indexes of the sentence
+  my $max_end = 0;
+
+  my $multiword = ''; # store a multiword line to keep with the following token
+
+  # the following cycle for reading UD CONLL is modified from Jan Štěpánek's UD TrEd extension
+  foreach my $line (@lines) {
+      chomp($line);
+      # print STDERR "Line: $line\n";
+      if ($line =~ /^\d+\.\d+/) { # a generated zero - ignore for now (this is a hack!)
+        next;
+      }
+      if ($line =~ /^#/ && !$root) {
+          $root = Tree::Simple->new({}, Tree::Simple->ROOT);
+          # print STDERR "Beginning of a new sentence!\n";
+      }
+
+      if ($line =~ /^#\s*newdoc/) { # newdoc
+          set_attr($root, 'newdoc', $line); # store the whole line incl. e.g. id = ...
+      } elsif ($line =~ /^#\s*newpar/) { # newpar
+          set_attr($root, 'newpar', $line); # store the whole line incl. e.g. id = ...
+      } elsif ($line =~ /^#\s*sent_id\s=\s*(\S+)/) {
+          my $sent_id = $1; # substr $sent_id, 0, 0, 'PML-' if $sent_id =~ /^(?:[0-9]|PML-)/;
+          set_attr($root, 'id', $sent_id);
+      } elsif ($line =~ /^#\s*text\s*=\s*(.*)/) {
+          set_attr($root, 'text', $1);
+          #print STDERR "Reading sentence '$1'\n";
+      } elsif ($line =~ /^#/) { # other comment, store it as well (all other comments in one attribute other_comment with newlines included)
+          my $other_comment_so_far = attr($root, 'other_comment') // '';
+          set_attr($root, 'other_comment', $other_comment_so_far . $line . "\n");
+          
+      } elsif ($line =~ /^$/) { # empty line, i.e. end of a sentence
+          _create_structure($root);
+          set_attr($root, 'start', $min_start);
+          set_attr($root, 'end', $max_end);
+          $min_start = $min_start = 10000;
+          $max_end = 0;
+          push(@trees, $root);
+          #print STDERR "End of sentence id='" . attr($root, 'id') . "'.\n\n";
+          $root = undef;
+
+      } else { # a token
+          my ($n, $form, $lemma, $upos, $xpos, $feats, $head, $deprel,
+              $deps, $misc) = split (/\t/, $line);
+          $_ eq '_' and undef $_
+              for $xpos, $feats, $deps, $misc;
+
+          # $misc = 'Treex::PML::Factory'->createList( [ split /\|/, ($misc // "") ]);
+          #if ($n =~ /-/) {
+          #    _create_multiword($n, $root, $misc, $form);
+          #    next
+          #}
+          if ($n =~ /-/) { # a multiword line, store it to keep with the next token
+            $multiword = $line;
+            next;
+          }
+          
+          #$feats = _create_feats($feats);
+          #$deps = [ map {
+          #    my ($parent, $func) = split /:/;
+          #    'Treex::PML::Factory'->createContainer($parent,
+          #                                            {func => $func});
+          #} split /\|/, ($deps // "") ];
+
+          my $node = Tree::Simple->new({});
+          set_attr($node, 'ord', $n);
+          set_attr($node, 'form', $form);
+          set_attr($node, 'lemma', $lemma);
+          set_attr($node, 'deprel', $deprel);
+          set_attr($node, 'upostag', $upos);
+          set_attr($node, 'xpostag', $xpos);
+          set_attr($node, 'feats', $feats);
+          set_attr($node, 'deps', $deps); # 'Treex::PML::Factory'->createList($deps),
+          set_attr($node, 'misc', $misc);
+          set_attr($node, 'head', $head);
+          
+          if ($multiword) { # the previous line was a multiword, store it at the current token
+            set_attr($node, 'multiword', $multiword);
+            $multiword = '';
+          }
+          
+          if ($misc and $misc =~ /TokenRange=(\d+):(\d+)\b/) {
+            my ($start, $end) = ($1, $2);
+            set_attr($node, 'start', $start);
+            set_attr($node, 'end', $end);
+            $min_start = $start if $start < $min_start;
+            $max_end = $end if $end > $max_end;          
+          }
+          
+          $root->addChild($node);
+          
+      }
+  }
+  # If there wasn't an empty line at the end of the file, we need to process the last tree here:
+  if ($root) {
+      _create_structure($root);
+      set_attr($root, 'start', $min_start);
+      set_attr($root, 'end', $max_end);
+      push(@trees, $root);
+      #print STDERR "End of sentence id='" . attr($root, 'id') . "'.\n\n";
+      $root = undef;
+      #warn "Emtpy line missing at the end of input\n";
+  }
+  # end of Jan Štěpánek's modified cycle for reading UD CONLL
+
+  # Now let us add pointers to immediately left and right nodes in the sentence surface order
+  # And also pointers at roots to left and right neigbouring trees
+  my $prev_tree = undef;
+  foreach my $tree (@trees) {
+    # pointers to left and right trees at roots
+    if ($prev_tree) {
+      set_attr($prev_tree, 'right', $tree);
+      set_attr($tree, 'left', $prev_tree);
+    }
+    $prev_tree = $tree;
+    # pointers at nodes to left and right nodes
+    my @ordered_nodes = sort {attr($a, 'ord') <=> attr($b, 'ord')} descendants($tree);
+    my $prev_node = undef;
+    foreach my $node (@ordered_nodes) {
+      set_attr($node, 'left', $prev_node);
+      if ($prev_node) {
+        set_attr($prev_node, 'right', $node);
+      }
+      $prev_node = $node;
+    }
+    set_attr($ordered_nodes[-1], 'right', undef);
+  }
+
+  return @trees;
 }
 
 
