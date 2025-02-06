@@ -24,7 +24,7 @@ binmode STDERR, ':encoding(UTF-8)';
 
 my $start_time = [gettimeofday];
 
-my $VER = '0.70 20250204'; # version of the program
+my $VER = '0.70 20250206'; # version of the program
 
 my @features = ('first names (not judges)',
                 'surnames (not judges, male and female tied)',
@@ -595,8 +595,11 @@ foreach my $root (@trees) {
     next if $exclude_from_unification{$lemma};
 
     my @values = get_NE_values($node);
+    if (!@values) {
+      @values = ('NONE'); # to compare with not-recognized occurrences
+    }
     my $marks = join '~', @values;
-    next if !$marks; # no named entity here
+    next if !$marks; # no named entity here (after the push above, never happens)
     
     # tady možná to bude chtít profiltrovat jen pro některé typy named entities nebo jen pro lemmata určitého tvaru
     # aby se třeba všechny předložky "od" nerozpoznaly jako "OD" - "obchodní dům"
@@ -617,7 +620,7 @@ foreach my $root (@trees) {
         $lemma_utag2marks2count{$lemma_utag} = {};
       }
       $lemma_utag2marks2count{$lemma_utag}{$marks}++;
-      mylog(0, "Found an instance of a single-node named entity with lemma '$lemma', upostag '$upostag' and marks '$marks'; so far, " . $lemma_utag2marks2count{$lemma_utag}{$marks} . " same instances have been found.\n");
+      #mylog(0, "Found an instance of a single-node named entity with lemma '$lemma', upostag '$upostag' and marks '$marks'; so far, " . $lemma_utag2marks2count{$lemma_utag}{$marks} . " same instances have been found.\n");
     }
   }
 }
@@ -639,15 +642,15 @@ foreach my $lemma_utag (keys(%lemma_utag2marks2count)) { # foreach lemma+upostag
   foreach my $marks (keys(%marks2count)) {
     my $count = $marks2count{$marks};
     $max_count = $count if ($count > $max_count);
-    mylog(0, "$lemma_utag\t$marks\t$marks2count{$marks}\n");
+    #mylog(0, "$lemma_utag\t$marks\t$marks2count{$marks}\n");
   }
-  mylog(0, " - max count for $lemma_utag: $max_count\n");
+  #mylog(0, " - max count for $lemma_utag: $max_count\n");
   # now let us filter only marks with the biggest count:
   my @marks_with_max_count = grep {$marks2count{$_} == $max_count} keys(%marks2count);
-  mylog(0, " - marks with max count: " . join(', ', @marks_with_max_count) . "\n");
+  #mylog(0, " - marks with max count: " . join(', ', @marks_with_max_count) . "\n");
   # now let us filter only marks supported by MasKIT:
   my @supported_marks = grep {is_supported($_)} @marks_with_max_count;
-  mylog(0, " - supported marks: " . join(', ', @supported_marks) . "\n");
+  #mylog(0, " - supported marks: " . join(', ', @supported_marks) . "\n");
   my $best_marks = '';
   if (@supported_marks) {
     $best_marks = $supported_marks[0]; # for simplicity, we use the first one
@@ -656,7 +659,7 @@ foreach my $lemma_utag (keys(%lemma_utag2marks2count)) { # foreach lemma+upostag
     $best_marks = $marks_with_max_count[0]; # do we really want this, i.e. an unsupported mark to propagate?
   }
   $lemma_utag2bestmarks{$lemma_utag} = $best_marks;
-  mylog(0, " - best marks: '$best_marks'\n");
+  #mylog(0, " - best marks: '$best_marks'\n");
 }
 
 
@@ -687,9 +690,12 @@ foreach my $root (@trees) {
     next if $upostag !~ /^(NOUN|PROPN)$/;
 
     my $lemma = attr($node, 'lemma') // 'nolemma';
+    next if $lemma eq 'soud';
+    
     my $lemma_utag = $lemma . '_' . $upostag;
     my $best_marks = $lemma_utag2bestmarks{$lemma_utag};
     next if !$best_marks; # no best marks for this lemma+upostag
+    next if $best_marks eq 'NONE';
     
     if ($best_marks ne $marks) {
       my @marks = split('~', $best_marks);
@@ -1701,6 +1707,9 @@ sub is_supported {
     if ($supported_NameTag_classes{$single_mark}) {
       return 1;
     }
+    if ($marks eq 'NONE') {
+      return 1;
+    }
   }
   return 0;
 }
@@ -2391,11 +2400,11 @@ sub is_street_number {
   if ($upostag !~ /^(NUM)$/) { # not a number
     return 0;
   }
-  mylog(0, "is_street_number: it is a number: " . attr($node, 'form') . ".\n");
+  #mylog(0, "is_street_number: it is a number: " . attr($node, 'form') . ".\n");
   my $parent = $node->getParent;
   while ($parent) {
     my $parent_lemma = attr($parent, 'lemma') // '';
-    mylog(0, "is_street_number: parent_lemma is: '$parent_lemma'.\n");
+    #mylog(0, "is_street_number: parent_lemma is: '$parent_lemma'.\n");
     if ($parent_lemma =~ /^(ulice|náměstí|nábřeží)$/) {
       return 1;
     }
@@ -2404,7 +2413,7 @@ sub is_street_number {
       return 1;
     }
     my $parent_upostag = attr($parent, 'upostag') // '';
-    mylog(0, "is_street_number: parent_upostag is: '$parent_upostag'.\n");
+    #mylog(0, "is_street_number: parent_upostag is: '$parent_upostag'.\n");
     if ($parent_upostag eq 'NUM' or $parent_lemma eq 'číslo') {
       $parent = $parent->getParent;
     }
