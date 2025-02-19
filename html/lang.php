@@ -33,6 +33,7 @@ $lang = array(
 	'run_options_options_classes' => 'Použití tříd při nahrazování',
 	'run_options_options_classes_popup' => 'Namísto náhradních textů jsou při nahrazování používány třídy',
 	'run_input_text' => 'Vstupní text',
+	'run_input_text_default_text' => 'Paní Marie Nováková z Myslíkovy ulice č. 25 dostala dopis od firmy Škoda Auto, a.s..',
 	'run_input_text_button_delete' => 'Smazat vstupní text',
 	'run_process_input' => 'Zpracovat vstup',
 	'run_output_text' => 'Výstup',

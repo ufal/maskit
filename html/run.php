@@ -11,6 +11,21 @@
       //console.log("DOM byl kompletně načten!");
   });
 
+  document.addEventListener("DOMContentLoaded", function() {
+      const textarea = document.getElementById('input');
+      let originalValue = textarea.value;
+
+      textarea.addEventListener('focus', function() {
+          if (this.value === originalValue) {
+              this.value = '';
+              this.style.color = '#333333'; // Změní barvu na tmavou při psaní
+          }
+      });
+
+      // Nastavení barvy pro předvyplněný text při načtení
+      textarea.style.color = '#bbbbbb';
+  });
+
   function doSubmit() {
     //var model = jQuery('#model :selected').text();
     //if (!model) return;
@@ -353,7 +368,7 @@
     
     <div class="tab-content" id="input_tabs" style="border-right: 1px solid #ddd; border-left: 1px solid #ddd; border-bottom: 1px solid #ddd; border-bottom-right-radius: 5px; border-bottom-left-radius: 5px; padding: 15px">
      <div class="tab-pane active" id="input_text">
-      <textarea id="input" class="form-control" rows="10" cols="80"></textarea>
+      <textarea id="input" class="form-control" rows="10" cols="80"><?php echo $lang['cs']['run_input_text_default_text']; ?></textarea>
      </div>
     </div>
 
