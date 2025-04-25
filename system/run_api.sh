@@ -1,3 +1,5 @@
+# Příkaz pro testování API:
+
 morbo api.pl
 
 # to specify custom URLs for UDPipe and NameTag, run, e.g.:
@@ -8,54 +10,58 @@ exit
 
 <<COMMENT
 
-REST API implementováno v Perlu pomocí knihovny Mojolicious::Lite, spouští se pomocí příkazu morbo api.pl.
+Making it automatic (via systemd):
 
-Aby REST API služba fungovala nezávisle na terminálu a i po restartu počítače: použití process manager a service pro správu běhu.
+/etc/systemd/system/maskit-api.service for morbo (i.e., testing with only one client served at a time):
 
-Konfigurační soubor pro Systemd: (`/etc/systemd/system/my-api.service`):
+[Unit]
+Description=MasKIT API Service
 
-   ```
-   [Unit]
-   Description=My API Service
+[Service]
+ExecStart=/usr/bin/morbo /home/mirovsky/server/api.pl
+WorkingDirectory=/home/mirovsky/server
+Restart=always
+User=mirovsky
 
-   [Service]
-   ExecStart=/usr/bin/morbo /cesta/k/tvemu/api.pl
-   WorkingDirectory=/cesta/k/tvemu
-   Restart=always
-   User=tvoje-uzivatelske-jmeno
+[Install]
+WantedBy=multi-user.target
 
-   [Install]
-   WantedBy=multi-user.target
-   ```
+===================
+/etc/systemd/system/maskit-api.service for hypnotoad (i.e., production with multiple clients served at a time):
 
-   Nastavit cestu k `api.pl`, pracovní adresář, uživatelské jméno a další parametry podle potřeby.
+[Unit]
+Description=MasKIT API Service
+After=network.target
 
-Aktivace a spuštění služby:
+[Service]
+Type=simple
+ExecStart=/usr/bin/hypnotoad --foreground /home/mirovsky/server/api.pl
+ExecStop=/usr/bin/hypnotoad --stop /home/mirovsky/server/api.pl
+WorkingDirectory=/home/mirovsky/server
+Restart=always
+User=mirovsky
 
-Po vytvoření konfigurace:
+[Install]
+WantedBy=multi-user.target
 
+===================
+Then:
    ```
    sudo systemctl daemon-reload
-   sudo systemctl enable my-api
-   sudo systemctl start my-api
+   sudo systemctl enable maskit-api
+   sudo systemctl start maskit-api
    ```
-
-Služba se začne automaticky spouštět při startu systému a bude se také automaticky restartovat v případě selhání.
-
-Správa služby:
-
+Also:
    ```
-   sudo systemctl status my-api
-   sudo systemctl stop my-api
-   sudo systemctl restart my-api
+   sudo systemctl status maskit-api
+   sudo systemctl stop maskit-api
+   sudo systemctl restart maskit-api
    ```
-
-REST API je takto spuštěna jako systémová služba, která bude fungovat nezávisle na terminálu a bude se také automaticky restartovat po restartu počítače.
 
 ===========
 Pozn.
 Vstupní body služby REST API (např. info, process) je potřeba nastavit také v konfiguraci serveru Apache:
-/etc/apache2/sites-available/000-default.conf, např.:
+/etc/apache2/sites-available/000-default.conf; port 3000 pro morbo, 8080 pro hypnotoad, např.:
 
         # Proxy pro /api/process a /api/info
         ProxyPass "/api/process" "http://localhost:3000/api/process"
