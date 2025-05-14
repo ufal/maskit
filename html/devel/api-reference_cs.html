@@ -1,0 +1,94 @@
+<h2 id="api_reference">Rozhraní API</h2>
+
+<p>K rozhraní REST API služby MasKIT lze přistupovat <a href="#" onclick="event.preventDefault(); selectMainTab('run');">přímo z těchto stránek</a> nebo pomocí
+webových programových nástrojů, které podporují standardní metody požadavků HTTP a formát JSON
+pro zpracování výsledků.</p>
+
+<table class='table table-striped table-bordered'>
+<tr>
+    <th>Požadavek API</th>
+    <th>Popis</th>
+    <th>Metoda HTTP</th>
+</tr>
+<tr>
+    <td><a href="#process">process</a></td>
+    <td><a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit" target="_blank">zpracuje text a nahradí osobní informace</a></td>
+    <td>GET/POST</td>
+</tr>
+<tr>
+    <td><a href="#info">info</a></td>
+    <td><!--a href="http://ufal.mff.cuni.cz/maskit/users-manual#info" target="_blank"-->vrátí verzi serveru a seznam podporovaných vlastností</a></td>
+    <td>GET/POST</td>
+</tr>
+</table>
+
+
+<h3>Metoda <a id='process'>process</a></h3>
+
+<p>Zpracuje vstupní data tak, jak je popsáno v <a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit" target="_blank">uživatelské dokumentaci</a>.</p>
+
+<table class='table table-striped table-bordered'>
+<tr><th>Parametr</th><th>Povinný</th><th>Typ dat</th><th>Popis</th></tr>
+<tr><td>text</td><td>ano</td><td>řetězec</td><td>Vstupní text v kódování <b>UTF-8</b>.</td></tr>
+<tr><td>input</td><td>ne</td><td>řetězec</td><td>Vstupní formát; možné hodnoty: <code>txt</code> (defaultní), <code>presegmented</code>, viz. <a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_input" target="_blank">vstupní formát</a> v dokumentaci.</td></tr>
+<tr><td>output</td><td>ne</td><td>řetězec</td><td>Výstupní formát; možné hodonoty: <code>txt</code> (defaultní), <code>html</code>, <code>conllu</code>, viz. <a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank">výstupní formát</a> v dokumentaci.</td></tr>
+<tr><td>randomize</td><td>ne</td><td>N/A</td><td>Pokud je přítomen, náhrady textů jsou vybírány v náhodném pořadí.</td></tr>
+<tr><td>classes</td><td>ne</td><td>N/A</td><td>Pokud je přítomen, namísto náhradních textů jsou při nahrazování používány třídy.</td></tr>
+</table>
+
+<p>Parametry <code>randomize</code> a <code>classes</code> se vzájemně vylučují.</p>
+
+<p>
+Odpověď serveru je ve formátu <a href="http://en.wikipedia.org/wiki/JSON" target="_blank">JSON</a> s touto strukturou:</p>
+
+<pre class="prettyprint lang-json">
+{
+ "message": "přehledová_zpráva"
+ "result": "zpracovaný_výstup"
+ "stats": "statistiky"
+}
+</pre>
+
+<code>přehledová_zpráva</code> je krátká přehledová zpráva o aktuálním volání REST API;
+<br/><code>zpracovaný_výstup</code> je výstup programu MasKIT v požadovaném výstupním formátu;
+<br/><code>statistiky</code> jsou přehled ve formátu HTML obsahující verzi služby MasKIT, délku textu a čas zpracování.
+
+
+<h3>Metoda <a id='info'>info</a></h3>
+
+<p>Vrátí informace o serveru - verzi služby MasKIT a seznam podporovaných vlastností. Metoda nemá parametry.</p>
+
+<p>
+Odpověď je ve formátu <a href="http://en.wikipedia.org/wiki/JSON" target="_blank">JSON</a> s touto strukturou:</p>
+
+<pre class="prettyprint lang-json">
+{
+ "version": "verze_MasKITu"
+ "features": "podporované_vlastnosti"
+}
+</pre>
+
+<code>verze_MasKITu</code> je verze serveru sestávající z čísla verze a data vytvoření této verze; v případě anonymizovaného serveru následuje řetězec "(no text logging)",
+<br/><code>podporované_vlastnosti</code> jsou seznam podporovaných vlastností oddělených znakem '•'.
+
+
+<h2 style="margin-top: 20px">Příklad pro webový prohlížeč</h2>
+<table style='width: 100%'>
+ <tr><td style='vertical-align: middle'><pre style='margin-bottom: 0; white-space: pre-wrap' class="prettyprint lang-html">http://quest.ms.mff.cuni.cz/maskit/api/process?input=txt&amp;output=txt&amp;text=Paní Marie Nováková z Myslíkovy ulice č. 25 dostala dopis od firmy Škoda Auto, a.s..</pre></td>
+     <td style='vertical-align: middle; width: 6em'><button style='width: 100%' type="button" class="btn btn-success btn-xs" onclick="window.open('http://quest.ms.mff.cuni.cz/maskit/api/process?input=txt&amp;output=txt&amp;text=Paní Marie Nováková z Myslíkovy ulice č. 25 dostala dopis od firmy Škoda Auto, a.s..')">vyzkoušet</button></td></tr>
+</table>
+
+<hr />
+
+<h2 id="using_curl">Přístup k API pomocí Curl</h2>
+
+Popsané rozhraní REST API lze snadno používat pomocí <code>curl</code>. Několik příkladů:
+
+<h3>Předání vstupu z příkazové řádky (předpokládá se nastavení prostředí UTF-8)</h3>
+<pre style="white-space: pre-wrap" class="prettyprint lang-sh">curl --data 'input=txt&amp;output=txt&amp;text=Paní Marie Nováková z Myslíkovy ulice č. 25 dostala dopis od firmy Škoda Auto, a.s..' http://quest.ms.mff.cuni.cz/maskit/api/process</pre>
+
+<h3>Použití vstupního souboru (soubory musejí být kódovány v UTF-8)</h3>
+<pre style="white-space: pre-wrap" class="prettyprint lang-sh">curl --data-urlencode 'input=txt' --data-urlencode 'output=html' --data-urlencode 'text@input_file.txt' http://quest.ms.mff.cuni.cz/maskit/api/process</pre>
+
+<h3>Konverze výsledku z formátu JSON do prostého textu</h3>
+<pre style="white-space: pre-wrap" class="prettyprint lang-sh">curl --data 'input=txt&amp;output=txt&amp;text=Paní Marie Nováková z Myslíkovy ulice č. 25 dostala dopis od firmy Škoda Auto, a.s..' http://quest.ms.mff.cuni.cz/maskit/api/process | PYTHONIOENCODING=utf-8 python3 -c "import sys,json; sys.stdout.write(json.load(sys.stdin)['result'])"</pre>
