@@ -5,6 +5,9 @@
   var output_file_stats = null;
   var output_format = null;
 
+  var output_display_colours = 1;
+  var output_display_originals = 1;
+
   document.addEventListener("DOMContentLoaded", function() {
       getInfo();
       //console.log("DOM byl kompletně načten!");
@@ -64,8 +67,10 @@
     output_file_content = null;
     jQuery('#output_formatted').empty();
     jQuery('#output_stats').empty();
-    jQuery('#submit').html('<span class="fa fa-cog"></span> Waiting for Results <span class="fa fa-cog"></span>');
+
+    jQuery('#submit').html('<span class="spinner-border spinner-border-sm" style="width: 1.2rem; height: 1.2rem;" role="status" aria-hidden="true"></span>&nbsp;<?php echo $lang[$currentLang]['run_process_input_processing']; ?>&nbsp;<span class="spinner-border spinner-border-sm" style="width: 1.2rem; height: 1.2rem; animation-direction: reverse;" role="status" aria-hidden="true"></span>');
     jQuery('#submit').prop('disabled', true);
+
     jQuery.ajax('//quest.ms.mff.cuni.cz/maskit/api/process',
            {data: form_data ? form_data : options, processData: form_data ? false : true,
             contentType: form_data ? false : 'application/x-www-form-urlencoded; charset=UTF-8',
@@ -87,7 +92,7 @@
     }, error: function(jqXHR, textStatus) {
       alert("An error occurred" + ("responseText" in jqXHR ? ": " + jqXHR.responseText : "!"));
     }, complete: function() {
-      jQuery('#submit').html('<span class="fa fa-arrow-down"></span> <?php echo $lang[$currentLang]['run_process_input']; ?> <span class="fa fa-arrow-down"></span>');
+      jQuery('#submit').html('<span class="fa fa-arrow-down"></span>&nbsp;<?php echo $lang[$currentLang]['run_process_input']; ?>&nbsp;<span class="fa fa-arrow-down"></span>');
       jQuery('#submit').prop('disabled', false);
     }});
   }
@@ -116,7 +121,7 @@
         if ("version" in json) {
 		version = json.version;
 		version += ', <span style="font-style: normal"><?php echo $lang[$currentLang]['run_server_info_status']; ?>:</span> <font color="green">online</font>';
-		//console.log("json.version: ", version);
+		console.log("json.version: ", version);
         }
         if ("features" in json) {
               features = json.features;
@@ -130,12 +135,17 @@
     }, complete: function() {
       //console.log("Complete.");
       var info = "<h4><?php echo $lang[$currentLang]['run_server_info_label']; ?></h4>\n<ul><li><?php echo $lang[$currentLang]['run_server_info_version']; ?>: <i>" + version + "</i>\n<li><?php echo $lang[$currentLang]['run_server_info_features']; ?>: <i>" + features + "</i>\n</ul>\n";
-      jQuery('#server_info').html(info).show();
       //console.log("Info: ", info);
-      var short_info = "&nbsp; <?php echo $lang[$currentLang]['run_server_info_version']; ?>: <i>" + version + "</i>";
-      jQuery('#server_short_info').html(short_info).show();
-      //console.log("Info: ", info);
+      document.getElementById('server_info').innerHTML = info;
+      document.getElementById('server_info').classList.remove('d-none');
+
+      //var short_info = "&nbsp; <?php echo $lang[$currentLang]['run_server_info_version']; ?>: <i>" + version + "</i>";
+      var short_info = "<i>" + version + "</i>";
+      //console.log("Short info: ", short_info);
+      document.getElementById('server_short_info').innerHTML = short_info;
+      document.getElementById('server_short_info').classList.remove('d-none');
       
+ 
     }});
   }
   
@@ -208,16 +218,12 @@
 
   function formatOutput() { 
     var formatted_output;  
-    // Nejprve checkbox pro zobrazování originálných výrazů
-    var checkbox = document.getElementById("origsCheckbox");
-    if (checkbox.checked) { // zobrazím původní výsledný text (vč. originálů)
+    if (output_display_originals) { // zobrazím původní výsledný text (vč. originálů)
       formatted_output = output_file_content;
     } else { // vyhodím z výsledného textu originály
       formatted_output = removeOriginals(output_file_content);
     }
-    // Nyní checkbox pro barevné zvýraznění nových výrazů
-    checkbox = document.getElementById("highlightingCheckbox");
-    if (checkbox.checked) { // zobrazím původní výsledný text (vč. barevného zvýraznění)
+    if (output_display_colours) { // zobrazím původní výsledný text (vč. barevného zvýraznění)
       // nedělám nic
     } else { // vyhodím z výsledného textu barevné zvýraznění nových výrazů
       formatted_output = removeHighlighting(formatted_output);
@@ -270,6 +276,46 @@
       optionRandomize.checked = false;
     }
   }
+
+function toggleOutputOriginals() {
+    // Přepnutí hodnoty globální proměnné
+    output_display_originals = output_display_originals === 0 ? 1 : 0;
+
+    // Získání elementů
+    const buttonText = document.getElementById('text_toggle_output_originals');
+    const button = document.getElementById('button_toggle_output_originals');
+
+    // Nastavení přeškrtnutí a tooltipu
+    if (output_display_originals === 0) {
+        buttonText.style.textDecoration = 'none';
+        button.title = '<?php echo $lang[$currentLang]['run_output_show_originals_tooltip']; ?>';
+    } else {
+        buttonText.style.textDecoration = 'line-through';
+        buttonText.style.textDecorationThickness = '1px';
+        button.title = '<?php echo $lang[$currentLang]['run_output_do_not_show_originals_tooltip']; ?>';
+    }
+    displayFormattedOutput();
+}
+
+function toggleOutputColours() {
+    // Přepnutí hodnoty globální proměnné
+    output_display_colours = output_display_colours === 0 ? 1 : 0;
+
+    // Získání elementů
+    const buttonText = document.getElementById('text_toggle_output_colours');
+    const button = document.getElementById('button_toggle_output_colours');
+
+    // Nastavení přeškrtnutí a tooltipu
+    if (output_display_colours === 0) {
+        buttonText.style.textDecoration = 'none';
+        button.title = '<?php echo $lang[$currentLang]['run_output_show_colours_tooltip']; ?>';
+    } else {
+        buttonText.style.textDecoration = 'line-through';
+        buttonText.style.textDecorationThickness = '1px';
+        button.title = '<?php echo $lang[$currentLang]['run_output_do_not_show_colours_tooltip']; ?>';
+    }
+    displayFormattedOutput();
+}
 
 --></script>
 
@@ -337,51 +383,82 @@
       </div>
     </div>
     
-    <!-- ================= INPUT FIELDS ================ -->
+    <!-- ================= INPUT FIELD ================ -->
 
+    <!-- input field tab -->
     <ul class="nav nav-tabs nav-tabs-green nav-tabs-custom nav-fill">
-      <li class="nav-item" style="position: relative;">
-        <a class="nav-link active" href="#input_text" data-bs-toggle="tab"><span class="fa fa-font"></span> <?php echo $lang[$currentLang]['run_input_text']; ?></a>
-        <button type="button" class="btn btn-primary btn-sm" style="position: absolute; top: 11px; right: 10px; padding: 0 2em;" onclick="var t=document.getElementById('input'); t.value=''; t.focus();"><?php echo $lang[$currentLang]['run_input_text_button_delete']; ?></button>
+      <li class="nav-item" id="input_text_header">
+        <a class="nav-link active d-flex align-items-center" href="#input_text" data-bs-toggle="tab">
+          <span class="fa fa-font me-2"></span>
+          <span><?php echo $lang[$currentLang]['run_input_text']; ?></span>
+          <div class="ms-auto d-flex gap-2">
+            <button class="btn btn-sm btn-primary btn-maskit-colors btn-maskit-small" onclick="var t=document.getElementById('input'); t.value=''; t.focus(); event.stopPropagation();">
+              <span class="fas fa-trash"></span>
+            </button>
+          </div>
+        </a>
       </li>
     </ul>
 
+    <!-- input field text -->
     <div class="tab-content" id="input_tabs" style="border-right: 1px solid #ddd; border-left: 1px solid #ddd; border-bottom: 1px solid #ddd; border-bottom-right-radius: 5px; border-bottom-left-radius: 5px; padding: 15px;">
       <div class="tab-pane active" id="input_text">
-        <textarea id="input" class="form-control" rows="10" cols="80"><?php echo $lang['cs']['run_input_text_default_text']; ?></textarea>
+        <textarea id="input" class="form-control" rows="8" cols="80"><?php echo $lang['cs']['run_input_text_default_text']; ?></textarea>
       </div>
     </div>
 
-    <button id="submit" class="btn btn-primary w-100" type="submit" style="margin-top: 15px; margin-bottom: 15px;" onclick="doSubmit()"><span class="fa fa-arrow-down"></span> <?php echo $lang[$currentLang]['run_process_input']; ?> <span class="fa fa-arrow-down"></span></button>
+    <!-- main submit button -->
+
+    <button id="submit" class="py-2 nav-link btn btn-primary btn-maskit-colors d-flex align-items-center justify-content-center w-100 text-white" type="submit" onclick="doSubmit()">
+        <span class="fa fa-arrow-down me-2"></span>
+        <span><?php echo $lang[$currentLang]['run_process_input']; ?></span>
+        <span class="fa fa-arrow-down ms-2"></span>
+      </button>
+
 
     <!-- ================= OUTPUT FIELDS ================ -->
     
     <ul class="nav nav-tabs nav-tabs-green nav-tabs-custom nav-fill">
-      <li class="nav-item" style="position: relative;">
-        <a class="nav-link active" href="#output_formatted" data-bs-toggle="tab"><span class="fa fa-font"></span> <?php echo $lang[$currentLang]['run_output_text']; ?></a>
-        <div style="position: absolute; top: 6px; left: 10px; padding: 0;">
-          <div style="display: flex; flex-direction: row;">
-            <div style="display: flex; flex-direction: column; align-items: center; margin-right: 8px;">
-              <input title="<?php echo $lang[$currentLang]['run_output_text_check_origs_popup']; ?>" type="checkbox" checked id="origsCheckbox" onchange="displayFormattedOutput();">
-              <span style="font-size: 60%; font-weight: normal; margin-top: 2px;"><?php echo $lang[$currentLang]['run_output_text_check_origs']; ?></span>
-            </div>
-            <div style="display: flex; flex-direction: column; align-items: center;">
-              <input title="<?php echo $lang[$currentLang]['run_output_text_check_colours_popup']; ?>" type="checkbox" checked id="highlightingCheckbox" onchange="displayFormattedOutput();">
-              <span style="font-size: 60%; font-weight: normal; margin-top: 2px;"><?php echo $lang[$currentLang]['run_output_text_check_colours']; ?></span>
-            </div>
+
+      <!-- output text tab -->
+      <li class="nav-item" id="output_text_header">
+        <a class="nav-link active d-flex align-items-center" href="#output_formatted" data-bs-toggle="tab">
+          <span class="fa fa-font me-2"></span>
+          <span><?php echo $lang[$currentLang]['run_output_text']; ?></span>
+          <div class="ms-auto d-flex gap-2">
+            <button id="button_toggle_output_originals" class="btn btn-primary btn-sm btn-maskit-colors btn-maskit-small" onclick="toggleOutputOriginals();" title="<?php echo $lang[$currentLang]['run_output_do_not_show_originals_tooltip']; ?>">
+              <span id="text_toggle_output_originals" style="text-decoration: line-through; text-decoration-thickness: 1px"><?php echo $lang[$currentLang]['run_output_show_originals']; ?></span>
+            </button>
+            <button id="button_toggle_output_colours" class="btn btn-primary btn-sm btn-maskit-colors btn-maskit-small" onclick="toggleOutputColours();" title="<?php echo $lang[$currentLang]['run_output_do_not_show_colours_tooltip']; ?>">
+              <span id="text_toggle_output_colours" style="text-decoration: line-through; text-decoration-thickness: 1px"><?php echo $lang[$currentLang]['run_output_show_colours']; ?></span>
+            </button>
+
+            <button class="btn btn-primary btn-sm btn-maskit-colors btn-maskit-small" onclick="saveOutput(); event.stopPropagation();">
+              <span class="fa fa-download"></span>
+            </button>
           </div>
-        </div>
-        <button type="button" class="btn btn-primary btn-sm" style="position: absolute; top: 11px; right: 10px; padding: 0 2em;" onclick="saveOutput();"><span class="fa fa-download"></span> <?php echo $lang[$currentLang]['run_output_text_button_save']; ?></button>
+        </a>
       </li>
-      <li class="nav-item" style="position: relative;">
-        <a class="nav-link" href="#output_stats" data-bs-toggle="tab"><span class="fa fa-table"></span> <?php echo $lang[$currentLang]['run_output_statistics']; ?></a>
-        <button type="button" class="btn btn-primary btn-sm" style="position: absolute; top: 11px; right: 10px; padding: 0 2em;" onclick="saveStats();"><span class="fa fa-download"></span> <?php echo $lang[$currentLang]['run_output_statistics_button_save']; ?></button>
+
+      <!-- output stats tab -->
+      <li class="nav-item" id="output_stats_header">
+        <a class="nav-link d-flex align-items-center" href="#output_stats" data-bs-toggle="tab">
+          <span class="fa fa-font me-2"></span>
+          <span><?php echo $lang[$currentLang]['run_output_statistics']; ?></span>
+          <div class="ms-auto d-flex gap-2">
+            <button class="btn btn-primary btn-sm btn-maskit-colors btn-maskit-small" onclick="saveStats(); event.stopPropagation();">
+              <span class="fa fa-download"></span>
+            </button>
+          </div>
+        </a>
       </li>
+
     </ul>
 
+    <!-- output panels -->
     <div class="tab-content" id="output_tabs" style="border-right: 1px solid #ddd; border-left: 1px solid #ddd; border-bottom: 1px solid #ddd; border-bottom-right-radius: 5px; border-bottom-left-radius: 5px; padding: 15px;">
-      <div class="tab-pane active" id="output_formatted"></div>
-      <div class="tab-pane" id="output_stats"></div>
+      <div class="tab-pane active" id="output_formatted" style="min-height: 300px; max-height: 85vh; overflow-y: auto;"></div>
+      <div class="tab-pane" id="output_stats" style="min-height: 300px; max-height: 85vh; overflow-y: auto;"></div>
     </div>
 
   </div>

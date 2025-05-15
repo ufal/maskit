@@ -1,19 +1,19 @@
-<?php $main_page=basename(__FILE__); require('header.php') ?>
 
 <?php
   if ($currentLang == 'cs') {
 ?>
-    <div style="margin: 5px"><?php require('about_cs.html') ?></div>
+    <div style="margin-left: 0px; margin-top: 8px; margin-bottom: 5px; margin-right: 5px"><?php require('about_cs.html') ?></div>
 <?php
   } else {
 ?>
-    <div style="margin: 5px"><?php require('about_en.html') ?></div>
+    <div style="margin-left: 0px; margin-top: 8px; margin-bottom: 5px; margin-right: 5px"><?php require('about_en.html') ?></div>
 <?php
   }
 ?>
 
+
 <div class="panel panel-info">
-  <div class="panel-heading">Basic info</div>
+  <div class="panel-heading"><?php echo $lang[$currentLang]['info_basic_label']; ?></div>
   <table class="table table-striped table-bordered">
   <tr>
       <th><?php echo $lang[$currentLang]['info_basic_authors']; ?></th>
@@ -37,7 +37,7 @@
   </tr>
   <tr>
       <th><?php echo $lang[$currentLang]['info_basic_licence']; ?></th>
-      <td><a href="http://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA</a></td>
+      <td><a href="https://www.mozilla.org/MPL/2.0/" target="_blank">MPL 2.0</a></td>
   </tr>
   <tr>
       <th><?php echo $lang[$currentLang]['info_basic_contact']; ?></th>
@@ -46,4 +46,21 @@
   </table>
 </div>
 
-<?php require('footer.php') ?>
+
+<!-- ================= ACKNOWLEDGEMENTS ================ -->
+
+<div class="mt-3 mb-3">
+  <?php
+    if ($currentLang == 'cs') {
+  ?>
+    <div><?php include('acknowledgements_cs.html'); ?></div>
+  <?php
+    } else {
+  ?>
+    <div><?php include('acknowledgements_en.html'); ?></div>
+  <?php
+    }
+  ?>
+</div>
+
+

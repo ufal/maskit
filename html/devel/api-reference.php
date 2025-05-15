@@ -10,8 +10,7 @@
   </ul>
 </div>
 
-<p style="margin-left: 0px; margin-top: 8px; margin-bottom: 5px; margin-right: 5px"><?php echo $lang[$currentLang]['api_service_url']; ?>
-<code>http(s)://quest.ms.mff.cuni.cz/maskit/api/</code>.</p>
+<p style="margin-left: 0px; margin-top: 8px; margin-bottom: 5px; margin-right: 5px"><?php echo $lang[$currentLang]['api_service_url']; ?>&nbsp;<code>http(s)://quest.ms.mff.cuni.cz/maskit/api/</code>.</p>
 
           <?php
             if ($currentLang == 'cs') {

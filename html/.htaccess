@@ -1,0 +1,7 @@
+# Nastavení výchozího souboru (index.php)
+DirectoryIndex index.php
+
+# Přesměrování run.php na index.php
+RewriteEngine On
+RewriteRule ^run\.php$ index.php [L,NC]
+
