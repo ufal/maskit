@@ -446,10 +446,20 @@ mylog(2, "input file: $input_file\n");
 # mylog(0, $input_content);
 
 
+
+my $processing_time;
+my $processing_time_udpipe;
+my $processing_time_nametag;
+my $processing_time_app1;
+my $processing_time_app2;
+
+
 ############################################################################################
 # Let us tokenize and segmet the file using UDPipe REST API with PDT-C 1.0 model
 # This model is better for segmentation of texts with many dots in the middle of sentences.
 ############################################################################################
+
+my $start_time_udpipe = [gettimeofday];
 
 my $conll_segmented = call_udpipe($input_content, 'segment');
 
@@ -467,9 +477,16 @@ if ($log_states and $log_states =~ /\bUD\b/) {
   close(OUT);
 }
 
+# Measure time spent by UDPipe 
+my $end_time_udpipe = [gettimeofday];
+$processing_time_udpipe = tv_interval($start_time_udpipe, $end_time_udpipe);
+
+
 ###################################################################################
-# Now let us add info about named entities¨ using NameTag REST API
+# Now let us add info about named entities using NameTag REST API
 ###################################################################################
+
+my $start_time_nametag = [gettimeofday];
 
 my $conll_data_ne = call_nametag($conll_data);
 
@@ -480,6 +497,9 @@ if ($log_states and $log_states =~ /\bNT\b/) {
   close(OUT);
 }
 
+# Measure time spent by NameTag 
+my $end_time_nametag = [gettimeofday];
+$processing_time_nametag = tv_interval($start_time_nametag, $end_time_nametag);
 
 
 ###################################################################################
@@ -832,8 +852,8 @@ mylog(1, "\n");
 # print_log_tail();
 
 # Measure time spent so far
-my $end_time = [gettimeofday];
-$processing_time = tv_interval($start_time, $end_time);
+my $end_time_total = [gettimeofday];
+$processing_time = tv_interval($start_time, $end_time_total);
 
 # calculate and format statistics if needed
 my $stats;
@@ -3240,9 +3260,11 @@ sub surface_text {
 =item get_stats
 
 Produces an html document with statistics about the anonymization, using info from these variables:
-my $sentences_count;
-my $tokens_count;
-my $processing_time;
+ - $sentences_count;
+ - $tokens_count;
+ - $processing_time;
+ - $processing_time_udpipe;
+ - $processing_time_nametag;
 
 =cut
 
@@ -3280,7 +3302,11 @@ END_HEAD
   $stats .= "<p>Number of sentences: $sentences_count\n";
   $stats .= "<br/>Number of tokens: $tokens_count\n";
   my $rounded_time = sprintf("%.1f", $processing_time);
+  my $rounded_time_udpipe = sprintf("%.1f", $processing_time_udpipe);
+  my $rounded_time_nametag = sprintf("%.1f", $processing_time_nametag);
   $stats .= "<br/>Processing time: $rounded_time sec.\n";
+  $stats .= "<br/> &nbsp; - UDPipe: $rounded_time_udpipe sec.\n";
+  $stats .= "<br/> &nbsp; - NameTag: $rounded_time_nametag sec.\n";
   $stats .= "</p>\n";
 
   $stats .= "$DESC\n";
