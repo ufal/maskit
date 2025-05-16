@@ -450,8 +450,6 @@ mylog(2, "input file: $input_file\n");
 my $processing_time;
 my $processing_time_udpipe;
 my $processing_time_nametag;
-my $processing_time_app1;
-my $processing_time_app2;
 
 
 ############################################################################################
