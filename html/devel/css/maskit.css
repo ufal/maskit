@@ -230,3 +230,7 @@ ul.nav-tabs-gray > li > a:focus {
   background-color: #dff0d8 !important;
 }
 
+.card-header .btn:hover {
+  background-color: rgba(0, 0, 0, 0.05); /* Slightly darker background on hover */
+}
+

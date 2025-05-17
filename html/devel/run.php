@@ -8,25 +8,26 @@
   var output_display_colours = 1;
   var output_display_originals = 1;
 
-  document.addEventListener("DOMContentLoaded", function() {
-      getInfo();
-      //console.log("DOM byl kompletně načten!");
-  });
 
   document.addEventListener("DOMContentLoaded", function() {
-      const textarea = document.getElementById('input');
-      let originalValue = textarea.value;
+    //console.log("DOM byl kompletně načten!");
+    //displayShortSelectedOptions(); // display default settings at the info bar
+    getInfo();
 
-      textarea.addEventListener('focus', function() {
-          if (this.value === originalValue) {
-              this.value = '';
-              this.style.color = '#333333'; // Změní barvu na tmavou při psaní
-          }
-      });
+    const textarea = document.getElementById('input');
+    let originalValue = textarea.value;
 
-      // Nastavení barvy pro předvyplněný text při načtení
-      textarea.style.color = '#bbbbbb';
+    textarea.addEventListener('focus', function() {
+      if (this.value === originalValue) {
+        this.value = '';
+        this.style.color = '#333333'; // Změní barvu na tmavou při psaní
+      }
+    });
+
+    // Nastavení barvy pro předvyplněný text při načtení
+    textarea.style.color = '#bbbbbb';
   });
+
 
   // Calling the SERVER:
 
@@ -317,27 +318,75 @@ function toggleOutputColours() {
     displayFormattedOutput();
 }
 
+
+  function displayShortSelectedOptions() {
+    // Získání vybraného formátu vstupu
+    const inputOptions = document.getElementsByName('option_input');
+    let selectedInput = '';
+    let selectedInputLabel = '';
+    for (const option of inputOptions) {
+        if (option.checked) {
+            selectedInput = option.id;
+            selectedInputLabel = document.querySelector(`label[for="${selectedInput}"]`).textContent.trim();
+            break;
+        }
+    }
+
+    // Získání vybraného jazyka
+    const langOptions = document.getElementsByName('option_lang');
+    let selectedLang = '';
+    let selectedLangLabel = '';
+    for (const option of langOptions) {
+        if (option.checked) {
+            selectedLang = option.id;
+            selectedLangLabel = document.querySelector(`label[for="${selectedLang}"]`).textContent.trim();
+            break;
+        }
+    }
+
+    // Získání názvů popisků
+    const inputLabel = "<span class=\"fw-bold me-2\"><?php echo $lang[$currentLang]['run_options_input_label']; ?>:</span>";
+    const langLabel = "<span class=\"fw-bold ms-3 me-2\"><?php echo $lang[$currentLang]['run_options_lang_label']; ?>:</span>";
+
+    // Sestavení výsledného řetězce
+    document.getElementById('options_short_info').innerHTML = `${inputLabel} ${selectedInputLabel}, ${langLabel} ${selectedLangLabel}`;
+    // Collapse the options panel after an option has been changed:
+    const aboutContent = document.getElementById('aboutContent');
+    const collapse = new bootstrap.Collapse(aboutContent, { toggle: false });
+    collapse.hide();
+  }
+
+
 --></script>
 
 
 <!--div class="container-fluid border rounded px-0 mt-1" style="height: 85vh;"-->
 <div class="container-fluid border rounded px-0 mt-1">
-  <div class="row gx-2 h-100">
 
     <!-- ================= OPTIONS ================ -->
-    
-    <div class="mt-3 mb-2">
+
+    <!-- ================= Options card ================ -->
+    <div class="card">
+      <div class="card-header p-0" role="tab" id="aboutHeading">
+        <button class="btn btn-link collapsed py-2 px-3 w-100 text-start d-block text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#aboutContent" aria-expanded="false" aria-controls="aboutContent">
+          <i class="fa-solid fa-caret-down"></i> <span id="options_short_info"></span>
+        </button>
+      </div>
+      <!-- ================= Options panel ================ -->
+      <div id="aboutContent" class="collapse m-1" role="tabpanel" aria-labelledby="aboutHeading">
+
+
       <div class="row mb-0" style="font-size: 0.9rem;">
         <label class="col-2 col-form-label fw-bold text-end pe-3 py-0" style="line-height: 1.2;"><?php echo $lang[$currentLang]['run_options_input_label']; ?>:</label>
         <div class="col-10 d-flex gap-3 align-items-center">
           <div class="form-check py-0">
-            <input class="form-check-input" name="option_input" type="radio" value="txt" id="option_input_plaintext" checked>
+            <input class="form-check-input" name="option_input" type="radio" value="txt" id="option_input_plaintext onchange="displayShortSelectedOptions();"" checked>
             <label class="form-check-label" for="option_input_plaintext" title="<?php echo $lang[$currentLang]['run_options_input_plain_popup']; ?>">
               <?php echo $lang[$currentLang]['run_options_input_plain']; ?>
             </label>
           </div>
           <div class="form-check py-0">
-            <input class="form-check-input" name="option_input" type="radio" value="presegmented" id="option_input_presegmented">
+            <input class="form-check-input" name="option_input" type="radio" value="presegmented" id="option_input_presegmented" onchange="displayShortSelectedOptions();">
             <label class="form-check-label" for="option_input_presegmented" title="<?php echo $lang[$currentLang]['run_options_input_presegmented_popup']; ?>">
               <?php echo $lang[$currentLang]['run_options_input_presegmented']; ?> 
               (<a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_input" target="_blank"><?php echo $lang[$currentLang]['run_options_input_presegmented_note']; ?></a>)
@@ -349,14 +398,14 @@ function toggleOutputColours() {
         <label class="col-2 col-form-label fw-bold text-end pe-3 py-0" style="line-height: 1.2;"><?php echo $lang[$currentLang]['run_options_output_label']; ?>:</label>
         <div class="col-10 d-flex gap-3 align-items-center">
           <div class="form-check py-0">
-            <input class="form-check-input" name="option_output" type="radio" value="txt" id="option_output_txt" onchange="handleOutputFormatChange();">
+            <input class="form-check-input" name="option_output" type="radio" value="txt" id="option_output_txt" onchange="handleOutputFormatChange(); displayShortSelectedOptions();">
             <label class="form-check-label" for="option_output_txt" title="<?php echo $lang[$currentLang]['run_options_output_txt_popup']; ?>">
               <?php echo $lang[$currentLang]['run_options_output_txt']; ?>
               (<a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank"><?php echo $lang[$currentLang]['run_options_output_txt_note']; ?></a>)
             </label>
           </div>
           <div class="form-check py-0">
-            <input class="form-check-input" name="option_output" type="radio" value="html" id="option_output_html" checked onchange="handleOutputFormatChange();">
+            <input class="form-check-input" name="option_output" type="radio" value="html" id="option_output_html" checked onchange="handleOutputFormatChange(); displayShortSelectedOptions();">
             <label class="form-check-label" for="option_output_html" title="<?php echo $lang[$currentLang]['run_options_output_html_popup']; ?>">
               <?php echo $lang[$currentLang]['run_options_output_html']; ?>
               (<a href="http://ufal.mff.cuni.cz/maskit/users-manual#run_maskit_output" target="_blank"><?php echo $lang[$currentLang]['run_options_output_html_note']; ?></a>)
@@ -368,13 +417,13 @@ function toggleOutputColours() {
         <label class="col-2 col-form-label fw-bold text-end pe-3 py-0" style="line-height: 1.2;"><?php echo $lang[$currentLang]['run_options_options_label']; ?>:</label>
         <div class="col-10 d-flex gap-3 align-items-center">
           <div class="form-check py-0">
-            <input class="form-check-input" id="option_randomize" name="option_randomize" type="checkbox" checked onchange="handleRandomizeChanged();">
+            <input class="form-check-input" id="option_randomize" name="option_randomize" type="checkbox" checked onchange="handleRandomizeChanged(); displayShortSelectedOptions();">
             <label class="form-check-label" for="option_randomize" title="<?php echo $lang[$currentLang]['run_options_options_randomize_popup']; ?>">
               <?php echo $lang[$currentLang]['run_options_options_randomize']; ?>
             </label>
           </div>
           <div class="form-check py-0">
-            <input class="form-check-input" id="option_classes" name="option_classes" type="checkbox" onchange="handleClassesChanged();">
+            <input class="form-check-input" id="option_classes" name="option_classes" type="checkbox" onchange="handleClassesChanged(); displayShortSelectedOptions();">
             <label class="form-check-label" for="option_classes" title="<?php echo $lang[$currentLang]['run_options_options_classes_popup']; ?>">
               <?php echo $lang[$currentLang]['run_options_options_classes']; ?>
             </label>
