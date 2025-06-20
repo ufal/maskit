@@ -463,7 +463,7 @@ my $start_time_udpipe = [gettimeofday];
 my $conll_segmented = call_udpipe($input_content, 'segment');
 
 
-my $sentence_count = 0;
+my $sent_count = 0;
 my $word_count = 0;
 
 # Rozdělíme text na řádky
@@ -482,11 +482,11 @@ foreach my $line (@lines) {
 # Počet vět zjistíme podle prázdných řádků nebo komentářů # text
 foreach my $line (@lines) {
     if ($line =~ /^# text =/) {
-        $sentence_count++;
+        $sent_count++;
     }
 }
 
-mylog(2, "input length: $word_count tokens, $sentence_count sentences\n");
+mylog(2, "input length: $word_count tokens, $sent_count sentences\n");
 
 
 
