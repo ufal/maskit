@@ -31,6 +31,7 @@
 use strict;
 use warnings;
 use Mojolicious::Lite;
+use Sys::Syslog qw(:standard :macros); # Načtení modulu Sys::Syslog s potřebnými konstantami
 use Getopt::Long; # reading arguments
 use IPC::Run qw(run);
 use JSON;
@@ -96,6 +97,16 @@ any '/api/process' => sub {
     my $output_format = $c->param('output') // ''; # output format
     my $randomize = defined $c->param('randomize') ? 1 : 0; # randomization
     my $classes = defined $c->param('classes') ? 1 : 0; # classes as replacements
+
+    # Získání hlaviček pro původní informace
+    my $referer = $c->req->headers->referer // 'unknown'; # Standardní referer
+    my $forwarded_for = $c->req->headers->header('X-Forwarded-For') // 'unknown'; # Původní IP klienta
+
+    # Zápis do syslogu
+    syslog(LOG_INFO, 'maskit: API request "process" from: "%s", X-Forwarded-For: "%s", method: "%s"',
+           $referer, $forwarded_for, $method);
+    syslog(LOG_INFO, 'maskit: API parameters: input format: "%s", output format: "%s", randomize: "%s", classes: "%s"',
+           $input_format, $output_format, $randomize, $classes);
 
     # Spuštění skriptu maskit.pl s předáním parametrů a standardního vstupu
     my @cmd = ('/usr/bin/perl', "$script_dir/maskit.pl",
