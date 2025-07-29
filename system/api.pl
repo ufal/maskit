@@ -37,6 +37,8 @@ use IPC::Run qw(run);
 use JSON;
 use Encode;
 use File::Basename;
+use Net::DNS;
+
 # use Data::Dumper;
 
 # STDIN and STDOUT in UTF-8
@@ -101,10 +103,11 @@ any '/api/process' => sub {
     # Získání hlaviček pro původní informace
     my $referer = $c->req->headers->referer // 'unknown'; # Standardní referer
     my $forwarded_for = $c->req->headers->header('X-Forwarded-For') // 'unknown'; # Původní IP klienta
+    my $forwarded_for_name = reverse_dns($forwarded_for);
 
     # Zápis do syslogu
-    syslog(LOG_INFO, 'maskit: API request "process" from: "%s", X-Forwarded-For: "%s", method: "%s"',
-           $referer, $forwarded_for, $method);
+    syslog(LOG_INFO, 'maskit: API request "process" from: "%s", X-Forwarded-For: "%s" ("%s"), method: "%s"',
+           $referer, $forwarded_for, $forwarded_for_name, $method);
     syslog(LOG_INFO, 'maskit: API parameters: input format: "%s", output format: "%s", randomize: "%s", classes: "%s"',
            $input_format, $output_format, $randomize, $classes);
 
@@ -158,4 +161,49 @@ app->config(hypnotoad => {
 #app->log->level('debug');
 
 app->start;
+
+
+# Vrací název hostitele z reverzního DNS (PTR) nebo primární DNS server (SOA) pro zadanou IP adresu, preferuje veřejné IP z X-Forwarded-For.
+sub reverse_dns {
+    my $ip_input = shift;
+
+    # Rozdělit X-Forwarded-For a vybrat první veřejnou IP adresu
+    my @ips = split /\s*,\s*/, $ip_input;
+    my $ip = 'unknown';
+    foreach my $candidate (@ips) {
+        if ($candidate =~ /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/ && $candidate !~ /^10\.|^192\.168\.|^172\.(1[6-9]|2[0-9]|3[0-1])\./) {
+            $ip = $candidate;
+            last;
+        }
+    }
+
+    # Pokud není platná IP adresa, vrátit 'unknown'
+    return 'unknown' unless $ip =~ /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
+
+    my $resolver = Net::DNS::Resolver->new(nameservers => ['8.8.8.8', '8.8.4.4']);
+
+    # PTR dotaz
+    my $target = join(".", reverse split(/\./, $ip)) . ".in-addr.arpa";
+    my $query = $resolver->query($target, "PTR");
+
+    if ($query) {
+        for my $rr ($query->answer) {
+            next unless $rr->type eq "PTR";
+            return $rr->ptrdname;
+        }
+    }
+
+    # SOA dotaz
+    my $zone = join(".", (reverse split(/\./, $ip))[1..3]) . ".in-addr.arpa";
+    my $soa_query = $resolver->query($zone, "SOA");
+
+    if ($soa_query) {
+        for my $rr ($soa_query->answer) {
+            next unless $rr->type eq "SOA";
+            return $rr->mname;
+        }
+    }
+
+    return 'unknown';
+}
 
