@@ -49,6 +49,9 @@ binmode STDERR, ':encoding(UTF-8)';
 my $script_path = $0;  # Získá název spuštěného skriptu s cestou
 my $script_dir = dirname($script_path);  # Získá pouze adresář ze získané cesty
 
+my $api_log = "$script_dir/log/api.log";
+
+
 # variables for arguments
 my $url_udpipe;
 my $url_nametag;
@@ -133,7 +136,35 @@ any '/api/process' => sub {
     }
     my $stdin_data = $text;
     my $result_json;
-    run \@cmd, \$stdin_data, \$result_json;
+    my $stderr_output;
+
+    # Calling the main app
+    my $run_success = run \@cmd, \$stdin_data, \$result_json, \$stderr_output;
+
+    my $exit_code = $? >> 8; # Get the exit code of the command
+    my $text_size = length($text);
+    my $mode = $classes ? 'anonymization' : 'pseudonymization';
+
+    # Log to $api_log
+    open(my $log_fh, '>>', $api_log) or die "Cannot open log file $api_log: $!";
+    my $log_message = scalar(localtime) . "\t"
+                      . $method . "\t"
+                      . $run_success . "\t"
+                      . $exit_code . "\t"
+                      . $referer . "\t"
+                      . $forwarded_for . "\t"
+                      . $forwarded_for_name . "\t"
+                      . $text_size . "\t"
+                      . $input_format . "\t"
+                      . $output_format . "\t"
+		      . $mode
+                      . "\n";
+
+    print $log_fh encode_utf8($log_message);
+    if (!$run_success) {
+        print $log_fh encode_utf8("Error: $stderr_output\n") if $stderr_output;
+    }
+    close $log_fh;
         
     # Decode the output as a JSON object
     my $json_data = decode_json($result_json);
