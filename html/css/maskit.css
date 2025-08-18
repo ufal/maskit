@@ -234,3 +234,21 @@ ul.nav-tabs-gray > li > a:focus {
   background-color: rgba(0, 0, 0, 0.05); /* Slightly darker background on hover */
 }
 
+/* graf s počty přístupů */
+
+#server_info {
+  overflow: auto; /* Zajistí obtékání obsahu kolem grafu */
+}
+
+.chart-container {
+  float: right; /* Graf vpravo nahoře */
+  width: 500px;
+  height: 250px;
+  margin: 0 0 10px 20px; /* Mezera dole a vlevo pro obtékání */
+}
+
+canvas#accessChart {
+  width: 500px !important;
+  height: 250px !important; /* Pevná velikost plátna */
+}
+

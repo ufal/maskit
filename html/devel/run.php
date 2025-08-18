@@ -1,4 +1,83 @@
 
+<!-- Reading logs and preparation of a chart with access numbers for several past months -->
+
+<?php
+$monthsBack = 6; // Počet měsíců zpět (vč. aktuálního), lze změnit
+$logsDir = __DIR__ . '/log'; // Cesta k adresáři s logy
+$logFilesPattern = 'api.log*'; // Vzor pro soubory (api.log, api.log.1, api.log.2.gz atd.)
+
+// Získání aktuálního data (pro simulaci použijte zadané datum, v reálu date('Y-m-d H:i:s'))
+//$now = new DateTime('2025-08-15');
+$now = new DateTime();
+$cutoffDate = (clone $now)->modify("-$monthsBack months")->setDate($now->format('Y'), $now->format('m') - $monthsBack + 1, 1); // První den nejstaršího měsíce
+
+// Inicializace počtů přístupů
+$accessCounts = [];
+for ($i = 0; $i < $monthsBack; $i++) {
+    $d = (clone $now)->modify("-$i months");
+    $yearMonth = $d->format('Y-m');
+    $accessCounts[$yearMonth] = 0;
+}
+
+// Načtení souborů pomocí glob
+$logFiles = glob("$logsDir/$logFilesPattern");
+//if (empty($logFiles)) {
+//    die('Žádné logovací soubory nenalezeny.');
+//}
+
+// Zpracování každého souboru
+foreach ($logFiles as $file) {
+    if (pathinfo($file, PATHINFO_EXTENSION) === 'gz') {
+        // Komprimovaný soubor
+        $handle = gzopen($file, 'r');
+        if (!$handle) continue;
+        while (($line = gzgets($handle)) !== false) {
+            processLine($line, $cutoffDate, $accessCounts);
+        }
+        gzclose($handle);
+    } else {
+        // Nekomprimovaný soubor
+        $handle = fopen($file, 'r');
+        if (!$handle) continue;
+        while (($line = fgets($handle)) !== false) {
+            processLine($line, $cutoffDate, $accessCounts);
+        }
+        fclose($handle);
+    }
+}
+
+// Funkce pro zpracování řádku
+function processLine($line, $cutoffDate, &$accessCounts) {
+    $line = trim($line);
+    if (empty($line)) return;
+
+    $parts = explode("\t", $line);
+    if (count($parts) < 1) return;
+
+    $dateStr = $parts[0];
+    $logDate = DateTime::createFromFormat('D M d H:i:s Y', $dateStr);
+    if (!$logDate) return; // Neplatné datum
+
+    if ($logDate >= $cutoffDate) {
+        $yearMonth = $logDate->format('Y-m');
+        if (isset($accessCounts[$yearMonth])) {
+            $accessCounts[$yearMonth]++;
+        }
+    }
+}
+
+// Příprava dat pro graf
+$labels = array_keys($accessCounts);
+sort($labels); // Vzestupně (nejstarší napřed)
+$data = [];
+foreach ($labels as $label) {
+    $data[] = $accessCounts[$label];
+}
+$labelsJson = json_encode($labels);
+$dataJson = json_encode($data);
+?>
+
+
 <script type="text/javascript"><!--
   var input_file_content = null;
   var output_file_content = null;
@@ -13,6 +92,7 @@
     //console.log("DOM byl kompletně načten!");
     displayShortSelectedOptions(); // display default settings at the info bar
     getInfo();
+    createAccessCountChart();
 
     const textarea = document.getElementById('input');
     let originalValue = textarea.value;
@@ -97,6 +177,65 @@
       jQuery('#submit').prop('disabled', false);
     }});
   }
+
+  function createAccessCountChart () {
+        const ctx = document.getElementById('accessChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: <?php echo $labelsJson; ?>,
+                datasets: [{
+                    label: '<?php echo $lang[$currentLang]['run_server_access_chart_column_label']; ?> ',
+                    data: <?php echo $dataJson; ?>,
+                    backgroundColor: '#36A2EB',
+                    borderColor: '#1E87D6',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: false, /* Zakázáno pro pevnou velikost */
+                animation: false, /* Zakázání animací */
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: '#333',
+                            font: { size: 12 }
+                        }
+                    },
+                    //title: {
+                    //    display: true,
+                    //    text: 'Počet přístupů za poslední měsíce',
+                    //    color: '#333',
+                    //    font: { size: 14 }
+                    //}
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        //title: {
+                        //    display: true,
+                        //    text: 'Počet přístupů',
+                        //    color: '#333',
+                        //    font: { size: 12 }
+                        //},
+                        ticks: { color: '#333', font: { size: 10 } }
+                    },
+                    x: {
+                        //title: {
+                        //    display: true,
+                        //    text: 'Měsíc',
+                        //    color: '#333',
+                        //    font: { size: 12 }
+                        //},
+                        ticks: { color: '#333', font: { size: 10 } }
+                    }
+                }
+            }
+        });
+
+  }
+
 
   
   function getInfo() { // call the server and get the MasKIT version and a list of supported features
