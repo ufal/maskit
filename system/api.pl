@@ -147,6 +147,7 @@ any '/api/process' => sub {
 
     # Log to $api_log
     open(my $log_fh, '>>', $api_log) or die "Cannot open log file $api_log: $!";
+    chmod 0644, $api_log;
     my $log_message = scalar(localtime) . "\t"
                       . $method . "\t"
                       . $run_success . "\t"
